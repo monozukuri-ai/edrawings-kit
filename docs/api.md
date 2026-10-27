@@ -1,10 +1,12 @@
-# Python APIガイド
+# Python API guide
 
-`edrawings_kit`はRustで入力を解析し、不変のPython dataclassとbytesバッファを返します。
-summaryやメタデータのモデルは`to_dict()`でJSON互換の辞書に変換できます。
-公開型には型注釈を同梱しています。
+English | [日本語](ja/api.md)
 
-## 入力とentry
+`edrawings_kit` parses input in Rust and returns immutable Python dataclasses and
+byte buffers. Summary and metadata models provide `to_dict()` to produce
+JSON-compatible dictionaries. Public types include type annotations.
+
+## Inputs and entries
 
 ```python
 import edrawings_kit as ed
@@ -19,35 +21,39 @@ payload = doc.extract(info.hsf_candidates[0])
 print(payload.info.sha256, len(payload.data))
 ```
 
-ファイル入口は`probe_file` / `inspect_file` / `read_file`、bytes入口は
-`probe` / `inspect` / `read`です。名前の拡張子ではなく内容から形式を識別します。
-`read_file`は入力のスナップショットを保持するため、後から元ファイルが変更されても影響しません。
+Use `probe_file`, `inspect_file`, or `read_file` for files, and `probe`, `inspect`, or
+`read` for bytes. The format is identified from the contents, not the filename
+extension. `read_file` retains a snapshot of the input, so later changes to the
+source file do not affect the document.
 
-`inspect`はentryを展開せず、CRCは未検査です。`verify_all()`は全entryを検証します。
-`read_file(..., verify_all=True)`でも全entryの検証を要求できます。
-ZIPのentry名は自動展開先に使いません。同名entryは`entry:N`というIDで区別します。
-複数のHSF候補がある場合は、利用者がentryを指定してください。
+`inspect` does not decompress entries or check their CRCs. `verify_all()` verifies
+all entries; `read_file(..., verify_all=True)` requests the same verification when
+reading. ZIP entry names are never used as automatic extraction destinations.
+Entries with duplicate names are distinguished by IDs such as `entry:N`.
+If there are multiple HSF candidates, select an entry explicitly.
 
 ```python
 header = doc.inspect_hsf("entry:0")
 parsed = doc.parse_hsf("entry:0", mode="partial")
 ```
 
-## 解析状態と例外
+## Parse status and errors
 
-| 状態 | 意味 |
+| Status | Meaning |
 | --- | --- |
-| `not_requested` | その段階は未実行 |
-| `complete` | その段階・プロファイルの対象範囲を取得済み |
-| `partial` | 確定した部分を取得したが、未対応または欠落がある |
-| `unsupported` | 意味や処理に未対応 |
+| `not_requested` | This stage has not run. |
+| `complete` | The supported scope of this stage and profile has been processed. |
+| `partial` | Confirmed data is available, but unsupported or missing information remains. |
+| `unsupported` | The operation or semantics are not supported. |
 
-`complete`は全eDrawings形式への対応を意味しません。形状の定義、配置、描画設定、
-文書の意味には別の状態があります。`scene.status`だけで表示の再現性を判断しないでください。
+`complete` does not mean support for every eDrawings format. Geometry definitions,
+placement, rendering settings, and document semantics have separate statuses.
+Do not use `scene.status` alone to judge whether rendering can be reproduced.
 
-`EdrawingsError`以下に`InvalidFormatError`、`UnsupportedFeatureError`、
-`LimitExceededError`があります。`error.diagnostic.code`は機械判定用の識別子です。
-I/Oエラーは`OSError`系です。`partial`でも破損や制限超過を成功に変換しません。
+`InvalidFormatError`, `UnsupportedFeatureError`, and `LimitExceededError` derive
+from `EdrawingsError`. Use `error.diagnostic.code` for programmatic error handling.
+I/O failures use `OSError` subclasses. Even in `partial` mode, corruption and limit
+violations are errors.
 
 ```python
 try:
@@ -56,25 +62,27 @@ except ed.UnsupportedFeatureError as error:
     print(error.diagnostic.code)
 ```
 
-## 実験プロファイル
+## Experimental profiles
 
-`parse_hsf` / `read_scene` / `read_drawing`は次の引数を受け取ります。
+`parse_hsf`, `read_scene`, and `read_drawing` accept the following arguments:
 
-| 引数 | 値 | 用途 |
+| Argument | Value | Purpose |
 | --- | --- | --- |
-| `user_data_profile` | `disabled`（既定） | 製品固有User Dataを解釈しない |
-| 同上 | `edrawings_first_be_v2` | 対応する先頭User Dataの境界・fieldを取得 |
-| 同上 | `edrawings_be_envelope_v1` | 対応する先頭・末尾User Dataを取得 |
-| `image_profile` | `disabled`（既定） | 実験的な画像規約を有効にしない |
-| 同上 | `edrawings_1910_u32_v1` | 対応する画像定義の保存値と出典を取得 |
+| `user_data_profile` | `disabled` (default) | Do not interpret product-specific User Data. |
+| `user_data_profile` | `edrawings_first_be_v2` | Read boundaries and fields of supported leading User Data. |
+| `user_data_profile` | `edrawings_be_envelope_v1` | Read supported leading and terminal User Data. |
+| `image_profile` | `disabled` (default) | Do not enable experimental image conventions. |
+| `image_profile` | `edrawings_1910_u32_v1` | Read stored values and source references for supported image definitions. |
 
-実験プロファイルの採用はdiagnosticsに残り、strictでは拒否します。
-意味を確定できないUser Dataや描画設定が残る場合、インスタンス配置を抑止することがあります。
-未知の版や長さを推測して読み飛ばしません。
-`scene` / `drawing`の`import_root`は明示的な絶対segment文脈を指定するための引数です。
-外部ファイルを取得したり、未知の親属性を補完したりするものではありません。
+Applying an experimental profile is recorded in diagnostics and rejected in
+`strict` mode. Unresolved User Data or rendering settings may prevent instance
+placement. The parser does not guess unknown versions or lengths to skip data.
 
-## メッシュと配置
+The `import_root` argument to `read_scene` and `read_drawing` supplies an explicit
+absolute segment context. It does not fetch external files or infer unknown
+parent attributes.
+
+## Meshes and placement
 
 ```python
 scene = doc.read_scene(user_data_profile="edrawings_be_envelope_v1")
@@ -86,16 +94,18 @@ for mesh in scene.summary.meshes:
     vertex_bytes = buffers.vertices.data
 ```
 
-バッファは不変bytesへのコピーで、NumPyは必須ではありません。必要なら
-`np.frombuffer(buffer.data, dtype=buffer.dtype).reshape(buffer.shape)`で利用できます。
-頂点は局所座標です。配置が確定したインスタンスは`scene.summary.instances`に別途返します。
-行列はrow-major / row-vectorで、合成順序は`p_world = p_local * local * parent`です。
+Buffers are copies stored as immutable bytes; NumPy is optional. If needed, use
+`np.frombuffer(buffer.data, dtype=buffer.dtype).reshape(buffer.shape)`.
+Vertices use local coordinates. Instances with resolved placement are returned
+separately in `scene.summary.instances`. Matrices use row-major storage and row
+vectors, with composition order `p_world = p_local * local * parent`.
 
-未知の単位・色・可視性は`None`として保持します。単位変換や法線の自動生成は行いません。
-三角形への変換に未対応の面は元のface情報を保持し、三角形バッファを保留する場合があります。
-`triangle_faces`で生成三角形と元の面の対応を取得できます。
+Unknown units, colors, and visibility remain `None`. The parser does not convert
+units or generate normals. Faces that cannot be triangulated retain their original
+face data; triangle buffers may be withheld. `triangle_faces` maps generated
+triangles to their source faces.
 
-## 図面・文字・文書構造
+## Drawings, text, and document structure
 
 ```python
 drawing = doc.read_drawing(user_data_profile="edrawings_be_envelope_v1")
@@ -111,22 +121,29 @@ print(drawing.summary.configuration_inventory)
 print(drawing.summary.drawing_plane_profile)
 ```
 
-sheet/view・部品・構成は対応する保存規約から取得します。部品行列は局所値です。
-active構成や一般的な有効表示状態は補完しません。図面XYの単位は検証条件に合うwriterに限定し、
-元CAD原点やモデル寸法への逆変換を保証しません。
-文字は既知のASCII・ISO-8859-1・UTF-8・Unicode16/32規約を厳密に復号します。
-未知encodingでは原情報を保持し、不正な既知encodingはエラーにします。
-寸法の表示文字から真値・公差・幾何参照を生成しません。
+Sheets, views, components, and configurations are read from supported storage
+conventions. Component matrices are local values. The parser does not infer an
+active configuration or general effective display state. Drawing XY units are
+supported only for writers that meet the profile's validation conditions; recovery
+of the original CAD origin or model dimensions is not guaranteed.
 
-`read_drawing(mode="strict")`は文書意味まで要求するため、現在は未対応の例外になります。
-汎用要素の厳密検査には、対応する入力で`read_scene(mode="strict")`を使ってください。
+Text is decoded strictly using known ASCII, ISO-8859-1, UTF-8, and Unicode16/32
+conventions. Unknown encodings retain the original information; malformed data in
+a known encoding raises an error. Dimension display text is not converted into
+true dimensions, tolerances, or geometric references.
 
-## 出典と資源制限
+`read_drawing(mode="strict")` requires document semantics and currently raises an
+unsupported-feature exception. For strict validation of generic elements, use
+`read_scene(mode="strict")` with supported input.
 
-`source_bytes(span)`は指定された展開後domain内の元バイトを返します。
-コンテナのoffsetと内部圧縮後のoffsetは異なる座標系です。両者を加算して使用しないでください。
+## Source references and resource limits
 
-`Limits.desktop()` / `Limits.service()`で入力、展開量、出力、record、node等の上限を設定します。
-個別の上限も`Limits(max_file_bytes=..., max_output_bytes=...)`で指定できます。
-これらはパーサの消費予算であり、プロセス全体のRSS上限ではありません。
-JSON化や利用側の配列コピーにも別途メモリが必要です。
+`source_bytes(span)` returns the original bytes in the specified decompressed
+domain. Container offsets and offsets within internally decompressed data use
+different coordinate systems; do not add them together.
+
+`Limits.desktop()` and `Limits.service()` set budgets for input, decompression,
+output, records, nodes, and other resources. You can also set individual limits
+with `Limits(max_file_bytes=..., max_output_bytes=...)`.
+These are parser consumption budgets, not limits on the process's total RSS.
+JSON serialization and array copies in your application require additional memory.

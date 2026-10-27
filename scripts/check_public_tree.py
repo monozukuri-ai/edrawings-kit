@@ -13,6 +13,7 @@ from verify_artifacts import SELF_AUTHORED_EDRW, check_names
 
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_DOCS = {"api.md", "cli.md", "development.md", "distribution.md", "support.md"}
+PUBLIC_DOCS |= {"ja/" + name for name in PUBLIC_DOCS}
 PUBLIC_SCRIPTS = {
     "check_backend.py",
     "check_public_tree.py",
@@ -43,6 +44,7 @@ def check_path(name: str) -> None:
 
 def verify(root: Path = ROOT) -> int:
     files = [root / "README.md", root / "NOTICE", root / "LICENSE"]
+    files.extend(root.glob("README.*.md"))
     for directory in ROOTS:
         files.extend(
             p

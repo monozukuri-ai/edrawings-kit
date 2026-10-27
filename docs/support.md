@@ -1,45 +1,53 @@
-# 対応環境・形式・制限
+# Supported platforms, formats, and limitations
 
-## 実行環境
+English | [日本語](ja/support.md)
 
-| 項目 | 対象 |
+## Runtime platforms
+
+| Component | Target |
 | --- | --- |
-| Python | CPython 3.10–3.14、通常のGIL付きbuild |
-| Linux wheel | x86_64、glibc 2.34以上 |
+| Python | CPython 3.10–3.14, standard builds with the GIL |
+| Linux wheel | x86_64, glibc 2.34 or later |
 | Windows wheel | x86_64 |
-| macOS wheel | arm64、macOS 11以上 |
-| ソースbuild | Rust 1.88以上、maturin/PyO3 |
+| macOS wheel | arm64, macOS 11 or later |
+| Source build | Rust 1.88 or later, maturin/PyO3 |
 
-wheelは`cp310-abi3`形式です。CIではLinuxのPython 3.10–3.14、Windows/macOSの3.10と3.14を試験します。
-Windows/macOSの3.11–3.13、free-threaded Python、PyPy、その他architectureは未認定です。
-パーサの動作にはeDrawingsやHOOPS SDKを要求しません。
+Wheels use the `cp310-abi3` tag. CI tests Python 3.10–3.14 on Linux and 3.10 and 3.14
+on Windows and macOS. Python 3.11–3.13 on Windows/macOS, free-threaded Python, PyPy,
+and other architectures are not qualified.
+The parser does not require eDrawings or the HOOPS SDK at runtime.
 
-## ファイルとデータ
+## Files and data
 
-| 対象 | 対応範囲 |
+| Area | Supported scope |
 | --- | --- |
-| コンテナ | raw HSF、通常ZIP、対応する92-byte前置き付きZIP |
-| ZIP | Store/Deflate、entry一覧、上限付き抽出、CRC/SHA-256 |
-| HSF | 8.05 / 14.50 / 19.10の限定命令群、内部zlib、出典と未解析範囲 |
-| 形状 | 対応するShell/Mesh、線・ポリライン・ポリゴン・円／円弧の保存値 |
-| 文字 | 既知encodingの復号、raw bytesと出典の保持 |
-| 属性 | 対応する色・可視性・行列・線種・font・glyph・描画設定の保存情報 |
-| 文書 | 対応するsheet/view、部品ツリー・局所変換、複数構成、限定図面単位 |
-| 製品固有User Data・画像 | 明示指定する実験プロファイルのみ |
+| Containers | Raw HSF, standard ZIP, and supported ZIP containers with a 92-byte prefix |
+| ZIP | Store/Deflate, entry listings, extraction with resource limits, CRC/SHA-256 |
+| HSF | A limited set of 8.05 / 14.50 / 19.10 opcodes, internal zlib compression, source references, and unparsed ranges |
+| Geometry | Stored values for supported Shell/Mesh, line, polyline, polygon, circle, and arc records |
+| Text | Known encoding conventions, with raw bytes and source references retained |
+| Attributes | Stored information for supported colors, visibility, matrices, line styles, fonts, glyphs, and rendering settings |
+| Documents | Supported sheets/views, component trees and local transforms, multiple configurations, and limited drawing units |
+| Product-specific User Data and images | Explicitly selected experimental profiles only |
 
-ZIP64、分割・暗号化ZIP、未知圧縮、対応プロファイル外のHSFやwriterは対象外です。
-メッシュ圧縮、LOD、画像／Texture、Style参照、クリップ等にも未対応の意味処理が残ります。
-詳細な利用可能機能は`edrawings_kit.build_info()`または`edrawings-kit info`で確認できます。
+ZIP64, split or encrypted ZIP archives, unknown compression methods, and HSF data
+or writers outside the supported profiles are not supported. Semantic processing
+also remains incomplete for mesh compression, LOD, images/textures, style
+references, clipping, and other features. Use `edrawings_kit.build_info()` or
+`edrawings-kit info` to inspect the available capabilities.
 
-## 結果の解釈
+## Interpreting results
 
-形状定義を取得できても、world配置や最終表示が確定しているとは限りません。
-`placement_status`、文書の`assessment`、各inventoryと属性のstatus、diagnosticsを確認してください。
-未解釈の情報がある場合、確実でない配置は生成しません。
+Reading geometry definitions does not necessarily establish world placement or
+final appearance. Check `placement_status`, the document `assessment`, each
+inventory and attribute status, and diagnostics. The parser does not emit
+uncertain placements when unresolved information remains.
 
-全eDrawingsファイルへの対応、公式Viewerと同じ表示、編集可能なB-Rep／履歴、
-元CADの寸法・公差・原点の復元、CAD形式への書き出しは提供していません。
-ファイルの拡張子や保存された数値文字だけを根拠に、単位や寸法の意味を補完しません。
+The project does not provide support for all eDrawings files, rendering equivalent
+to the official viewer, editable B-Rep or modeling history, recovery of original
+CAD dimensions, tolerances, or origins, or export to CAD formats. It does not infer
+unit or dimension semantics solely from a file extension or stored numeric text.
 
-APIおよびJSONはpre-alphaです。利用版と`build_info()`のbackend identityを記録し、
-更新時に使用する入力・出力の互換性を確認してください。
+The API and JSON schema are pre-alpha. Record the version and backend identity
+from `build_info()`, and check compatibility against your inputs and outputs when
+upgrading.
