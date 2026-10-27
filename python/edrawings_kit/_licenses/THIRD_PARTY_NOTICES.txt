@@ -1,0 +1,123 @@
+Third-party Rust dependency notices
+
+Includes the locked dependency graph across targets and build tools;
+this is a conservative inventory, not a claim that every crate is linked.
+License expressions and full notices are reproduced from crate distributions.
+
+adler2 2.0.1: 0BSD OR MIT OR Apache-2.0
+  adler2-2.0.1/LICENSE-0BSD
+  adler2-2.0.1/LICENSE-APACHE
+  adler2-2.0.1/LICENSE-MIT
+block-buffer 0.10.4: MIT OR Apache-2.0
+  block-buffer-0.10.4/LICENSE-APACHE
+  block-buffer-0.10.4/LICENSE-MIT
+cfg-if 1.0.5: MIT OR Apache-2.0
+  cfg-if-1.0.5/LICENSE-APACHE
+  cfg-if-1.0.5/LICENSE-MIT
+cpufeatures 0.2.17: MIT OR Apache-2.0
+  cpufeatures-0.2.17/LICENSE-APACHE
+  cpufeatures-0.2.17/LICENSE-MIT
+crc32fast 1.5.3: MIT OR Apache-2.0
+  crc32fast-1.5.3/LICENSE-APACHE
+  crc32fast-1.5.3/LICENSE-MIT
+crypto-common 0.1.7: MIT OR Apache-2.0
+  crypto-common-0.1.7/LICENSE-APACHE
+  crypto-common-0.1.7/LICENSE-MIT
+digest 0.10.7: MIT OR Apache-2.0
+  digest-0.10.7/LICENSE-APACHE
+  digest-0.10.7/LICENSE-MIT
+flate2 1.1.10: MIT OR Apache-2.0
+  flate2-1.1.10/LICENSE-APACHE
+  flate2-1.1.10/LICENSE-MIT
+generic-array 0.14.7: MIT
+  generic-array-0.14.7/LICENSE
+heck 0.5.0: MIT OR Apache-2.0
+  heck-0.5.0/LICENSE-APACHE
+  heck-0.5.0/LICENSE-MIT
+hsf-core 0.1.0-alpha.1: Apache-2.0
+  hsf-core-0.1.0-alpha.1/LICENSE
+  hsf-core-0.1.0-alpha.1/NOTICE
+itoa 1.0.18: MIT OR Apache-2.0
+  itoa-1.0.18/LICENSE-APACHE
+  itoa-1.0.18/LICENSE-MIT
+libc 0.2.191: MIT OR Apache-2.0
+  libc-0.2.191/LICENSE-APACHE
+  libc-0.2.191/LICENSE-MIT
+memchr 2.8.3: Unlicense OR MIT
+  memchr-2.8.3/COPYING
+  memchr-2.8.3/LICENSE-MIT
+miniz_oxide 0.9.1: MIT OR Zlib OR Apache-2.0
+  miniz_oxide-0.9.1/LICENSE
+  miniz_oxide-0.9.1/LICENSE-APACHE.md
+  miniz_oxide-0.9.1/LICENSE-MIT.md
+  miniz_oxide-0.9.1/LICENSE-ZLIB.md
+once_cell 1.21.4: MIT OR Apache-2.0
+  once_cell-1.21.4/LICENSE-APACHE
+  once_cell-1.21.4/LICENSE-MIT
+portable-atomic 1.15.0: Apache-2.0 OR MIT
+  portable-atomic-1.15.0/LICENSE-APACHE
+  portable-atomic-1.15.0/LICENSE-MIT
+proc-macro2 1.0.107: MIT OR Apache-2.0
+  proc-macro2-1.0.107/LICENSE-APACHE
+  proc-macro2-1.0.107/LICENSE-MIT
+pyo3 0.29.2: MIT OR Apache-2.0
+  pyo3-0.29.2/LICENSE-APACHE
+  pyo3-0.29.2/LICENSE-MIT
+pyo3-build-config 0.29.2: MIT OR Apache-2.0
+  pyo3-build-config-0.29.2/LICENSE-APACHE
+  pyo3-build-config-0.29.2/LICENSE-MIT
+pyo3-ffi 0.29.2: MIT OR Apache-2.0
+  pyo3-ffi-0.29.2/LICENSE-APACHE
+  pyo3-ffi-0.29.2/LICENSE-MIT
+pyo3-macros 0.29.2: MIT OR Apache-2.0
+  pyo3-macros-0.29.2/LICENSE-APACHE
+  pyo3-macros-0.29.2/LICENSE-MIT
+pyo3-macros-backend 0.29.2: MIT OR Apache-2.0
+  pyo3-macros-backend-0.29.2/LICENSE-APACHE
+  pyo3-macros-backend-0.29.2/LICENSE-MIT
+quick-xml 0.41.0: MIT
+  quick-xml-0.41.0/LICENSE-MIT.md
+quote 1.0.47: MIT OR Apache-2.0
+  quote-1.0.47/LICENSE-APACHE
+  quote-1.0.47/LICENSE-MIT
+roxmltree 0.21.1: MIT OR Apache-2.0
+  roxmltree-0.21.1/LICENSE-APACHE
+  roxmltree-0.21.1/LICENSE-MIT
+serde 1.0.229: MIT OR Apache-2.0
+  serde-1.0.229/LICENSE-APACHE
+  serde-1.0.229/LICENSE-MIT
+serde_core 1.0.229: MIT OR Apache-2.0
+  serde_core-1.0.229/LICENSE-APACHE
+  serde_core-1.0.229/LICENSE-MIT
+serde_derive 1.0.229: MIT OR Apache-2.0
+  serde_derive-1.0.229/LICENSE-APACHE
+  serde_derive-1.0.229/LICENSE-MIT
+serde_json 1.0.154: MIT OR Apache-2.0
+  serde_json-1.0.154/LICENSE-APACHE
+  serde_json-1.0.154/LICENSE-MIT
+sha2 0.10.9: MIT OR Apache-2.0
+  sha2-0.10.9/LICENSE-APACHE
+  sha2-0.10.9/LICENSE-MIT
+simd-adler32 0.3.10: MIT
+  simd-adler32-0.3.10/LICENSE.md
+syn 2.0.119: MIT OR Apache-2.0
+  syn-2.0.119/LICENSE-APACHE
+  syn-2.0.119/LICENSE-MIT
+syn 3.0.9: MIT OR Apache-2.0
+  syn-3.0.9/LICENSE-APACHE
+  syn-3.0.9/LICENSE-MIT
+target-lexicon 0.13.5: Apache-2.0 WITH LLVM-exception
+  target-lexicon-0.13.5/LICENSE
+typenum 1.20.1: MIT OR Apache-2.0
+  typenum-1.20.1/LICENSE
+  typenum-1.20.1/LICENSE-APACHE
+  typenum-1.20.1/LICENSE-MIT
+unicode-ident 1.0.27: (MIT OR Apache-2.0) AND Unicode-3.0
+  unicode-ident-1.0.27/LICENSE-APACHE
+  unicode-ident-1.0.27/LICENSE-MIT
+  unicode-ident-1.0.27/LICENSE-UNICODE
+version_check 0.9.5: MIT/Apache-2.0
+  version_check-0.9.5/LICENSE-APACHE
+  version_check-0.9.5/LICENSE-MIT
+zmij 1.0.23: MIT
+  zmij-1.0.23/LICENSE-MIT

@@ -1,0 +1,5 @@
+* text=auto eol=lf
+*.dxf -text -whitespace
+*.edrw -text
+*.tar.gz -text
+python/edrawings_kit/_licenses/** -text -whitespace

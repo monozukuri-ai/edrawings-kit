@@ -1,0 +1,62 @@
+[build-system]
+requires = ["maturin==1.15.0"]
+build-backend = "maturin"
+
+[project]
+name = "edrawings-kit"
+dynamic = ["version"]
+description = "Rust-based eDrawings container and bounded HSF scene reader"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+requires-python = ">=3.10"
+dependencies = []
+classifiers = ["Development Status :: 2 - Pre-Alpha", "Programming Language :: Rust", "Typing :: Typed"]
+
+[project.urls]
+Repository = "https://github.com/monozukuri-ai/edrawings-kit"
+Documentation = "https://github.com/monozukuri-ai/edrawings-kit#readme"
+Issues = "https://github.com/monozukuri-ai/edrawings-kit/issues"
+
+[project.scripts]
+edrawings-kit = "edrawings_kit.cli:main"
+
+[dependency-groups]
+dev = ["maturin==1.15.0", "pytest>=8.3,<9", "ruff>=0.15,<1", "mypy>=1.15,<3", "tomli>=2,<3; python_version < '3.11'"]
+
+[tool.maturin]
+manifest-path = "crates/edrawings-python/Cargo.toml"
+python-source = "python"
+module-name = "edrawings_kit._core"
+features = ["pyo3/extension-module"]
+locked = true
+include = [
+    { path = "Cargo.lock", format = "sdist" },
+    { path = "hsf-backend.lock.json", format = "sdist" },
+    { path = "NOTICE", format = "sdist" },
+    { path = "uv.lock", format = "sdist" },
+    { path = "docs/*.md", format = "sdist" },
+    { path = "tests/**/*.py", format = "sdist" },
+    { path = "tests/fixtures/native-m4/*", format = "sdist" },
+    { path = "scripts/*.py", format = "sdist" },
+]
+exclude = [".internal/**", "research/**", ".venv/**", "target/**", "dist/**", "reports/**", "vendor/**", "**/__pycache__/**"]
+
+[tool.uv]
+cache-keys = [{ file = "pyproject.toml" }, { file = "Cargo.toml" }, { file = "Cargo.lock" }, { file = "crates/**/*.rs" }, { file = "crates/**/Cargo.toml" }, { file = "hsf-backend.lock.json" }]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+target-version = "py310"
+include = ["python/**/*.py", "python/**/*.pyi", "tests/**/*.py", "scripts/*.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["python/edrawings_kit"]
+strict = true

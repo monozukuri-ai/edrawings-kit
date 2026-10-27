@@ -1,0 +1,21 @@
+edrawings-kit
+Copyright 2026 edrawings-kit contributors
+
+edrawings-kit contains the separately developed hsf-core Rust parser.
+The backend identity is recorded in hsf-backend.lock.json and build_info().
+Source builds resolve the pinned hsf-core release from crates.io.
+
+edrawings-kit and hsf-core are licensed under the Apache License, Version 2.0.
+See LICENSE for the full terms. The hsf-core attribution is reproduced in
+edrawings_kit/_licenses/hsf-core-NOTICE.
+
+Third-party Rust dependency license expressions, checksums and complete
+license texts are in edrawings_kit/_licenses/. Their terms are preserved.
+The inventory includes build dependencies and all Cargo target dependencies.
+
+The source archive includes only the explicitly hash-verified, project-authored
+native drawing regression fixtures. Third-party research CAD files, vendor
+software, fonts and the HOOPS SDK are not included.
+
+eDrawings and SOLIDWORKS are names of their respective owners. This project
+is an independent parser and is not an official vendor product.

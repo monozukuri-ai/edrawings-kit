@@ -1,0 +1,117 @@
+{
+  "schema_version": 4,
+  "path": "two-layouts-japanese-mm.dxf",
+  "sha256": "244ef91343e7daef6089a879eb3943816f2f864455bc29210e07b1ea191111f4",
+  "format": "DXF R2010 / AC1024",
+  "units": "millimeters",
+  "layouts": [
+    "Model",
+    "M4_SHEET_A",
+    "M4_SHEET_B"
+  ],
+  "paper_sizes_mm": {
+    "M4_SHEET_A": [
+      210,
+      148
+    ],
+    "M4_SHEET_B": [
+      297,
+      210
+    ]
+  },
+  "viewports": {
+    "M4_SHEET_A": {
+      "center": [
+        105,
+        72
+      ],
+      "size": [
+        180,
+        110
+      ],
+      "model_center": [
+        50,
+        25
+      ],
+      "model_height": 80,
+      "scale": 1.375
+    },
+    "M4_SHEET_B": {
+      "center": [
+        148,
+        125
+      ],
+      "size": [
+        250,
+        130
+      ],
+      "model_center": [
+        50,
+        25
+      ],
+      "model_height": 80,
+      "scale": 1.625
+    }
+  },
+  "dimension_cases": [
+    {
+      "layout": "Model",
+      "layer": "M4_DIMENSION",
+      "measurement_mm": 100.0,
+      "display_override": "<>",
+      "entity": "DIMENSION"
+    },
+    {
+      "layout": "M4_SHEET_B",
+      "layer": "M4_OVERRIDDEN",
+      "measurement_mm": 25.4,
+      "display_override": "99.9",
+      "entity": "DIMENSION"
+    },
+    {
+      "layout": "M4_SHEET_B",
+      "layer": "M4_PLAIN",
+      "line_length_mm": 100.0,
+      "text": "100",
+      "entity": "LINE+TEXT",
+      "semantic_dimension": false
+    }
+  ],
+  "model_rectangle_mm": [
+    100,
+    50
+  ],
+  "model_circle_radius_mm": 10,
+  "japanese": {
+    "layout": "M4_SHEET_A",
+    "text": "寸法確認 100 mm",
+    "insert": [
+      15,
+      125,
+      0
+    ],
+    "height": 3,
+    "style": "M4_JAPANESE",
+    "requested_font": "TakaoPGothic.ttf",
+    "native_font_resolution_verified": false,
+    "extended_font_family": "TakaoPGothic",
+    "extended_font_flags": 34
+  },
+  "display_contract": {
+    "layer_colors": {
+      "0": 1,
+      "Defpoints": 1,
+      "M4_MODEL": 1,
+      "M4_DIMENSION": 1,
+      "M4_OVERRIDDEN": 1,
+      "M4_PLAIN": 1,
+      "M4_JAPANESE": 1
+    },
+    "dimension_style": "EZDXF",
+    "dimension_factor": 1.0,
+    "dimension_picture_text": {
+      "Model": "100",
+      "M4_SHEET_B": "99.9"
+    }
+  }
+}

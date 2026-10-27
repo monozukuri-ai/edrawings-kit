@@ -1,0 +1,14 @@
+# Publicly downloadable samples are not automatically redistributable.
+/.internal/
+/research/corpus/
+/target/
+/.venv/
+/dist/
+/reports/
+__pycache__/
+*.pyc
+*.so
+*.pyd
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
