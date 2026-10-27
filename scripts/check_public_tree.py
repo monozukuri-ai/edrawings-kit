@@ -17,6 +17,7 @@ PUBLIC_DOCS |= {"ja/" + name for name in PUBLIC_DOCS}
 PUBLIC_SCRIPTS = {
     "check_backend.py",
     "check_public_tree.py",
+    "prepare_release.py",
     "release_metadata.py",
     "third_party_notices.py",
     "verify_artifacts.py",

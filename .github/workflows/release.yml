@@ -1,0 +1,160 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate source version and tag
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.14'
+      - name: Check version, license, lockfiles and tag
+        shell: bash
+        run: |
+          args=()
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            args=(--tag "$GITHUB_REF_NAME")
+          fi
+          python scripts/release_metadata.py "${args[@]}"
+          python scripts/check_public_tree.py
+
+  qualify:
+    name: Qualify distributions on all supported platforms
+    needs: validate
+    uses: ./.github/workflows/ci.yml
+
+  prepare:
+    name: Collect the verified publication bundle
+    needs: qualify
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.14'
+      # These are from the reusable CI in this run, not an earlier branch build.
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: wheels-*-python-3.10
+          path: candidate
+      - name: Check CI reports, hashes, platform inventory and wheel metadata
+        run: python scripts/prepare_release.py collect candidate bundle
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: publication-bundle
+          path: bundle/
+          if-no-files-found: error
+
+  pypi-publish:
+    name: Publish to PyPI
+    needs: prepare
+    # Manual runs validate and produce a bundle without publishing anything.
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    environment:
+      name: pypi
+      url: https://pypi.org/p/edrawings-kit
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.14'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: publication-bundle
+          path: bundle
+      - name: Recheck the transferred distributions before publication
+        run: python scripts/prepare_release.py verify bundle
+      - name: Publish with Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        with:
+          packages-dir: bundle/dist/
+          verify-metadata: true
+          attestations: true
+
+  github-release:
+    name: Publish GitHub Release
+    needs: pypi-publish
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.14'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: publication-bundle
+          path: bundle
+      - name: Recheck the transferred distributions before attaching them
+        run: python scripts/prepare_release.py verify bundle
+      - name: Attach distributions and checksums, then publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          if ! gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+              --verify-tag --draft --generate-notes --title "$GITHUB_REF_NAME"
+          fi
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          import tempfile
+          from pathlib import Path
+
+          tag = os.environ["GITHUB_REF_NAME"]
+          repo = os.environ["GITHUB_REPOSITORY"]
+          release = json.loads(subprocess.check_output([
+              "gh", "release", "view", tag, "--repo", repo, "--json", "assets"
+          ]))
+          existing = {asset["name"] for asset in release["assets"]}
+          files = sorted(Path("bundle/dist").iterdir()) + [Path("bundle/SHA256SUMS")]
+          for path in files:
+              if path.name in existing:
+                  # A failed upload can be retried; never overwrite published bytes.
+                  with tempfile.TemporaryDirectory() as directory:
+                      subprocess.run([
+                          "gh", "release", "download", tag, "--repo", repo,
+                          "--pattern", path.name, "--dir", directory
+                      ], check=True)
+                      if (Path(directory) / path.name).read_bytes() != path.read_bytes():
+                          raise SystemExit(f"Existing release asset differs: {path.name}")
+              else:
+                  subprocess.run([
+                      "gh", "release", "upload", tag, "--repo", repo, str(path)
+                  ], check=True)
+          command = ["gh", "release", "edit", tag, "--repo", repo, "--draft=false"]
+          if "-" in tag:
+              command.extend(["--prerelease", "--latest=false"])
+          else:
+              command.append("--prerelease=false")
+          subprocess.run(command, check=True)
+          PY
