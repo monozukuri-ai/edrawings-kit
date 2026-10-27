@@ -34,4 +34,4 @@ profileは既定disabled、modeは既定partial。
 
 strictの未対応・破損・資源超過を成功扱いにしない。エラー文言ではなく`error.code`で判定する。
 JSONはリダイレクト先やWindowsのlegacy code pageに関係なくUTF-8で出力する。
-pre-alphaのため将来のschema互換性は未保証。`info`と使用版を結果と共に記録する。
+JSON schemaは0.x版の更新時に変更されることがある。`info`と使用版を結果と共に記録する。

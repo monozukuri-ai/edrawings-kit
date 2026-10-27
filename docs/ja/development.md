@@ -55,8 +55,10 @@ uv run --no-sync pytest -q
 backend source hashにはCargoが展開したmanifestも含まれます。
 Git checkoutとregistry packageはmanifestの正規化により異なるhashになることがあります。
 
-版の正本はCargo.tomlの`workspace.package.version`です。Rustの`0.1.0-alpha.1`は
-Python配布では`0.1.0a1`となります。`scripts/release_metadata.py`で整合性を検査します。
+版の正本はCargo.tomlの`workspace.package.version`です。
+正式版はRustとPythonで同じ表記（例: `0.1.0`）を使用します。
+プレリリースではRustの`0.2.0-alpha.1`がPython配布の`0.2.0a1`となります。
+`scripts/release_metadata.py`で整合性を検査します。
 
 調査資料・実行ログ・個人環境情報は`.internal/`に保存し、Gitや配布物に含めません。
 公開側に必要なのは再現可能な試験と利用者向けの対応範囲です。

@@ -8,7 +8,7 @@ and stored document structure, with diagnostics and source references.
 HSF parsing uses [hsf-core](https://crates.io/crates/hsf-core).
 The eDrawings application and HOOPS SDK are not required at runtime.
 
-This is a pre-alpha reader with limited format support. It does not provide
+This is a read-only parser with limited format support. It does not provide
 complete placement or rendering for arbitrary files, reconstruct editable CAD
 models or dimension definitions, or write CAD files. Read the
 [support and limitations guide](docs/support.md) and check the status and

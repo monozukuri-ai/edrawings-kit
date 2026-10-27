@@ -200,7 +200,8 @@ def test_artifact_members_fail_closed(names):
 
 
 def test_authored_cad_fixture_exception_is_sdist_only():
-    name = "edrawings_kit-0.1.0a1/tests/fixtures/native-m4/two-layouts-mm.edrw"
+    version = release_metadata.verify()["python_version"]
+    name = f"edrawings_kit-{version}/tests/fixtures/native-m4/two-layouts-mm.edrw"
     verify_artifacts.check_names([name], self_authored_fixtures=True)
     with pytest.raises(RuntimeError, match="Corpus"):
         verify_artifacts.check_names([name])

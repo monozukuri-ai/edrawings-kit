@@ -7,7 +7,7 @@ eDrawings形式（`.eprt` / `.easm` / `.edrw`）を読み取るRustコアとPyth
 HSFの処理には[hsf-core](https://crates.io/crates/hsf-core)を使用します。
 eDrawingsアプリやHOOPS SDKは実行時に必要ありません。
 
-現在はpre-alphaの限定読み取りパーサです。任意のファイルの完全な形状配置・表示再現、
+対応範囲を限定した読み取り専用パーサです。任意のファイルの完全な形状配置・表示再現、
 編集可能なCADモデルや寸法定義の復元、書き出しには対応していません。
 [対応範囲](docs/ja/support.md)を確認し、結果のstatusとdiagnosticsを処理してください。
 

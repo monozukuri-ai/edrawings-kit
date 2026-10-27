@@ -43,5 +43,5 @@ errors. Use `error.code` for programmatic handling rather than matching error
 messages. JSON output is UTF-8, including when redirected or run under a legacy
 Windows code page.
 
-The schema is pre-alpha, with no guarantee of future compatibility. Record the
+The JSON schema may change between 0.x releases. Record the
 output of `info` and the version used alongside your results.

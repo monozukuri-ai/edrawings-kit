@@ -48,6 +48,6 @@ to the official viewer, editable B-Rep or modeling history, recovery of original
 CAD dimensions, tolerances, or origins, or export to CAD formats. It does not infer
 unit or dimension semantics solely from a file extension or stored numeric text.
 
-The API and JSON schema are pre-alpha. Record the version and backend identity
+The API and JSON schema may change between 0.x releases. Record the version and backend identity
 from `build_info()`, and check compatibility against your inputs and outputs when
 upgrading.

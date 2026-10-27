@@ -60,7 +60,8 @@ and a registry package may have different hashes because Cargo normalizes the
 manifest.
 
 The version source of truth is `workspace.package.version` in `Cargo.toml`.
-Rust version `0.1.0-alpha.1` maps to Python distribution version `0.1.0a1`.
+Final release versions use the same spelling in Rust and Python, such as `0.1.0`.
+For prereleases, Rust version `0.2.0-alpha.1` maps to Python distribution version `0.2.0a1`.
 `scripts/release_metadata.py` checks their consistency.
 
 Store research material, execution logs, and local environment details in

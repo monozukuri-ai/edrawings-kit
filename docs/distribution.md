@@ -58,7 +58,8 @@ CI workflow does not publish packages; the release workflow below handles public
 
 `.github/workflows/release.yml` runs on `v*` tag pushes. The tag must exactly match
 `v<workspace.package.version>` in `Cargo.toml`, including the Rust prerelease suffix
-(for example, `v0.1.0-alpha.1`, not the Python spelling `v0.1.0a1`).
+(for example, `v0.2.0-alpha.1`, not the Python spelling `v0.2.0a1`).
+For a final release such as `0.1.0`, use the tag `v0.1.0`.
 
 The workflow validates metadata, runs the complete reusable CI workflow, and
 collects the CPython 3.10 wheels for Linux x86_64, Windows x86_64, and macOS arm64,

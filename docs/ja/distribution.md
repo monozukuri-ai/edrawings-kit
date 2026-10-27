@@ -52,7 +52,8 @@ CIは3 OSで配布物をbuild・検査し、CPython3.10で生成した同じwhee
 
 `.github/workflows/release.yml`は`v*`タグのpushで起動します。タグはCargo.tomlの
 `v<workspace.package.version>`と完全一致する必要があります。
-プレリリースもRustの表記を使用します（例: `v0.1.0-alpha.1`。Python表記の`v0.1.0a1`ではありません）。
+プレリリースもRustの表記を使用します（例: `v0.2.0-alpha.1`。Python表記の`v0.2.0a1`ではありません）。
+正式版`0.1.0`のタグは`v0.1.0`です。
 
 メタデータの検証後、再利用可能なCI workflow全体を実行します。
 CPython 3.10で生成したLinux x86_64・Windows x86_64・macOS arm64のwheelと、
