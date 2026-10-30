@@ -35,6 +35,26 @@ fn user_data_policy(value: &str) -> PyResult<core::UserDataPolicy> {
     }
 }
 
+fn placement_policy(value: &str) -> PyResult<core::PlacementPolicy> {
+    match value {
+        "verified" => Ok(core::PlacementPolicy::Verified),
+        "scene_graph_v1" => Ok(core::PlacementPolicy::SceneGraphV1),
+        _ => Err(PyValueError::new_err(
+            "placement must be 'verified' or 'scene_graph_v1'",
+        )),
+    }
+}
+
+fn color_policy(value: &str) -> PyResult<core::ColorPolicy> {
+    match value {
+        "materials_xml" => Ok(core::ColorPolicy::MaterialsXml),
+        "hsf_only" => Ok(core::ColorPolicy::HsfOnly),
+        _ => Err(PyValueError::new_err(
+            "colors must be 'materials_xml' or 'hsf_only'",
+        )),
+    }
+}
+
 fn image_policy(value: &str) -> PyResult<core::ImagePolicy> {
     match value {
         "disabled" => Ok(core::ImagePolicy::Disabled),
@@ -75,7 +95,8 @@ impl DocumentHandle {
                 .map_err(map_error)?,
         })
     }
-    #[pyo3(signature = (entry_id=None, mode="partial", user_data_profile="disabled", image_profile="disabled", import_root=None))]
+    #[pyo3(signature = (entry_id=None, mode="partial", user_data_profile="disabled", image_profile="disabled", import_root=None, placement="verified"))]
+    #[allow(clippy::too_many_arguments)]
     fn read_scene(
         &self,
         py: Python<'_>,
@@ -84,6 +105,7 @@ impl DocumentHandle {
         user_data_profile: &str,
         image_profile: &str,
         import_root: Option<&str>,
+        placement: &str,
     ) -> PyResult<SceneHandle> {
         let profiles = core::HsfProfiles {
             user_data: user_data_policy(user_data_profile)?,
@@ -91,6 +113,7 @@ impl DocumentHandle {
         };
         let context = core::SceneContext {
             import_root: import_root.map(str::to_owned),
+            placement: placement_policy(placement)?,
         };
         let mode = match mode {
             "partial" => core::HsfMode::Partial,
@@ -106,7 +129,8 @@ impl DocumentHandle {
                 .map_err(map_error)?,
         })
     }
-    #[pyo3(signature = (entry_id=None, mode="partial", user_data_profile="disabled", image_profile="disabled", import_root=None))]
+    #[pyo3(signature = (entry_id=None, mode="partial", user_data_profile="disabled", image_profile="disabled", import_root=None, placement="verified"))]
+    #[allow(clippy::too_many_arguments)]
     fn read_drawing(
         &self,
         py: Python<'_>,
@@ -115,6 +139,7 @@ impl DocumentHandle {
         user_data_profile: &str,
         image_profile: &str,
         import_root: Option<&str>,
+        placement: &str,
     ) -> PyResult<DrawingHandle> {
         let profiles = core::HsfProfiles {
             user_data: user_data_policy(user_data_profile)?,
@@ -122,6 +147,7 @@ impl DocumentHandle {
         };
         let context = core::SceneContext {
             import_root: import_root.map(str::to_owned),
+            placement: placement_policy(placement)?,
         };
         let mode = match mode {
             "partial" => core::HsfMode::Partial,
@@ -134,6 +160,39 @@ impl DocumentHandle {
                     self.doc
                         .read_drawing_with_context(entry_id, mode, profiles, &context)
                 })
+                .map_err(map_error)?,
+        })
+    }
+    #[pyo3(signature = (entry_id=None, placement="scene_graph_v1", colors="materials_xml", configuration=None, display_state=None, include_hidden=false, user_data_profile="edrawings_be_envelope_v1", image_profile="edrawings_1910_u32_v1", import_root=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn read_display(
+        &self,
+        py: Python<'_>,
+        entry_id: Option<&str>,
+        placement: &str,
+        colors: &str,
+        configuration: Option<&str>,
+        display_state: Option<&str>,
+        include_hidden: bool,
+        user_data_profile: &str,
+        image_profile: &str,
+        import_root: Option<&str>,
+    ) -> PyResult<DisplayHandle> {
+        let options = core::DisplayOptions {
+            placement: placement_policy(placement)?,
+            colors: color_policy(colors)?,
+            configuration: configuration.map(str::to_owned),
+            display_state: display_state.map(str::to_owned),
+            include_hidden,
+            profiles: core::HsfProfiles {
+                user_data: user_data_policy(user_data_profile)?,
+                image: image_policy(image_profile)?,
+            },
+            import_root: import_root.map(str::to_owned),
+        };
+        Ok(DisplayHandle {
+            display: py
+                .detach(|| self.doc.read_display(entry_id, &options))
                 .map_err(map_error)?,
         })
     }
@@ -305,6 +364,96 @@ impl SceneHandle {
     }
 }
 
+fn doubles<'py>(
+    py: Python<'py>,
+    count: usize,
+    values: impl Iterator<Item = [u8; 8]>,
+) -> PyResult<Bound<'py, PyBytes>> {
+    let size = count
+        .checked_mul(8)
+        .ok_or_else(|| PyValueError::new_err("Buffer size overflow"))?;
+    PyBytes::new_with(py, size, |out| {
+        for (dst, value) in out.chunks_exact_mut(8).zip(values) {
+            dst.copy_from_slice(&value);
+        }
+        Ok(())
+    })
+}
+
+#[pyclass(frozen, module = "edrawings_kit._core")]
+struct DisplayHandle {
+    display: core::DisplayResult,
+}
+#[pymethods]
+impl DisplayHandle {
+    fn summary_json(&self, py: Python<'_>) -> PyResult<String> {
+        py.detach(|| json(self.display.summary()))
+    }
+    fn body_buffer<'py>(
+        &self,
+        py: Python<'py>,
+        index: usize,
+        kind: &str,
+    ) -> PyResult<Bound<'py, PyBytes>> {
+        let b = self.display.body(index).map_err(map_error)?;
+        match kind {
+            "positions" => words(
+                py,
+                b.positions.len() * 3,
+                b.positions.iter().flatten().map(|v| v.to_le_bytes()),
+            ),
+            "normals" => words(
+                py,
+                b.normals.len() * 3,
+                b.normals.iter().flatten().map(|v| v.to_le_bytes()),
+            ),
+            "triangles" => words(
+                py,
+                b.triangles.len() * 3,
+                b.triangles.iter().flatten().map(|v| v.to_le_bytes()),
+            ),
+            "edges" => words(
+                py,
+                b.edges.len() * 2,
+                b.edges.iter().flatten().map(|v| v.to_le_bytes()),
+            ),
+            _ => Err(PyValueError::new_err("Unknown body buffer kind")),
+        }
+    }
+    fn instance_buffer<'py>(&self, py: Python<'py>, kind: &str) -> PyResult<Bound<'py, PyBytes>> {
+        let i = self.display.instances();
+        match kind {
+            "matrices" => doubles(
+                py,
+                i.matrices.len() * 16,
+                i.matrices.iter().flatten().map(|v| v.to_le_bytes()),
+            ),
+            "bodies" => words(py, i.bodies.len(), i.bodies.iter().map(|v| v.to_le_bytes())),
+            "names" => words(py, i.names.len(), i.names.iter().map(|v| v.to_le_bytes())),
+            "component_paths" => words(
+                py,
+                i.component_paths.len(),
+                i.component_paths.iter().map(|v| v.to_le_bytes()),
+            ),
+            "colors" => PyBytes::new_with(py, i.colors.len() * 4, |out| {
+                for (dst, value) in out.chunks_exact_mut(4).zip(&i.colors) {
+                    dst.copy_from_slice(value);
+                }
+                Ok(())
+            }),
+            "color_sources" => Ok(PyBytes::new(py, &i.color_sources)),
+            "face_visibility" => Ok(PyBytes::new(py, &i.face_visibility)),
+            "visibility" => Ok(PyBytes::new(py, &i.visibility)),
+            _ => Err(PyValueError::new_err("Unknown instance buffer kind")),
+        }
+    }
+    fn preview<'py>(&self, py: Python<'py>) -> Option<(Bound<'py, PyBytes>, String)> {
+        self.display
+            .preview()
+            .map(|(data, media)| (PyBytes::new(py, data), media.to_string()))
+    }
+}
+
 #[pyclass(frozen, module = "edrawings_kit._core")]
 struct DrawingHandle {
     drawing: core::DrawingResult,
@@ -413,6 +562,7 @@ fn _core(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<HsfHandle>()?;
     module.add_class::<SceneHandle>()?;
     module.add_class::<DrawingHandle>()?;
+    module.add_class::<DisplayHandle>()?;
     module.add("NativeError", module.py().get_type::<NativeError>())?;
     module.add_function(wrap_pyfunction!(build_info, module)?)?;
     module.add_function(wrap_pyfunction!(probe_bytes, module)?)?;

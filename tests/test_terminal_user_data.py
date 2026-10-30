@@ -259,3 +259,58 @@ def test_cli_and_python_match(tmp_path, command):
             user_data_profile=PROFILE
         ).summary.to_dict()
     )
+
+
+def bitmap_terminal(revision=51, count=1, width=2, height=-1):
+    """Bitmap-carrying terminal envelope (revision 47; eDrawings 2026 under 51)."""
+    stride = (width * 24 + 31) // 32 * 4
+    pixels = stride * abs(height)
+    carrier = bytearray(96)
+    struct.pack_into("<IiiHHII", carrier, 32, 40, width, height, 1, 24, 0, pixels)
+    body = struct.pack("<IBII", 9, 190, revision, 0) + struct.pack("<I", count)
+    for _ in range(count):
+        body += struct.pack("<I", 96) + bytes(carrier)
+        body += struct.pack("<I", pixels) + bytes(pixels)
+    return b"[" + body + struct.pack("<I", 0) + b"]"
+
+
+@pytest.mark.parametrize("revision", [47, 51])
+def test_bitmap_terminal_envelope_is_accepted_for_resaved_revisions(revision):
+    tail = bitmap_terminal(revision, count=2) + b"z"
+    h = ed.read(make(revision, suffix=tail)).parse_hsf(
+        user_data_profile="edrawings_be_envelope_v1"
+    )
+    assert h.summary.unparsed == ()
+    r = [r for r in h.summary.records if r.kind == "experimental_user_data"][-1]
+    u = r.user_data
+    assert (
+        u.profile
+        == f"edrawings-terminal-be-v1-hsf-19.10-revision-{revision}-bitmaps-v1"
+    )
+    assert u.declared_length == 9
+    names = [f.label for f in u.fields]
+    assert names[:6] == [
+        "start",
+        "declared_length",
+        "private_identifier",
+        "internal_revision",
+        "opaque_reserved",
+        "bitmap_count",
+    ]
+    assert "bitmap_1_pixels" in names
+    assert h.source_bytes(r.source) == bitmap_terminal(revision, count=2)
+
+
+def test_plain_terminal_envelope_still_wins_and_wrong_length_is_a_mismatch():
+    h = ed.read(make(51)).parse_hsf(user_data_profile="edrawings_be_envelope_v1")
+    r = [r for r in h.summary.records if r.kind == "experimental_user_data"][-1]
+    assert r.user_data.profile == "edrawings-terminal-be-v1-hsf-19.10-revision-51"
+    # A plain envelope with extra zeros is neither form: the record stays unparsed.
+    broken = terminal(51)[:-1] + bytes(4) + b"]" + b"z"
+    h = ed.read(make(51, suffix=broken)).parse_hsf(
+        user_data_profile="edrawings_be_envelope_v1"
+    )
+    assert any(
+        d.code == "edrawings.user_data_profile_mismatch" for d in h.summary.diagnostics
+    )
+    assert h.summary.unparsed != ()

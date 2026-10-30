@@ -84,7 +84,9 @@ def test_each_truncation_is_invalid_in_both_modes(record):
         (b"O\x80", "hsf.clip_region_options"),
         (b"R" + struct.pack("<2I", 0x18000000, 0), "hsf.rendering_options_mask"),
         (
-            b"R" + struct.pack("<4I", 0x80000000, 0x80000000, 0, 0),
+            # Third word (TKO_Rendo_Extended2) selecting contour options, whose
+            # operand position is unverified.
+            b"R" + struct.pack("<6I", 0x80000000, 0x80000000, 8, 0, 0, 8),
             "hsf.rendering_options_mask",
         ),
         (

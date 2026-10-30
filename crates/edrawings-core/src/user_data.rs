@@ -54,6 +54,22 @@ impl UserDataPolicy {
         Some(r.id.clone())
     }
 
+    /// The producer's mount path for this file's root, when the accepted first
+    /// header records one (`/include library/model_N_include`). Relative segment
+    /// paths that climb above the file root are written against this location.
+    pub(crate) fn mount_path(self, parsed: &hsf_core::HsfDocument) -> Option<String> {
+        self.inventory_record(parsed)?;
+        let text = first_header_text(parsed, "include_path_candidate")?;
+        if !text.starts_with('/')
+            || text.len() > 4096
+            || text
+                .bytes()
+                .any(|b| !(b.is_ascii_alphanumeric() || b" /#+-$_.".contains(&b)))
+        {
+            return None;
+        }
+        Some(text)
+    }
     /// Only authorize a fully framed, final compressed record. The backend
     /// separately checks the terminal record arrangement before scene inventory.
     pub(crate) fn inventory_terminal_record(
@@ -82,6 +98,55 @@ impl UserDataPolicy {
         Some(r.id.clone())
     }
 }
+/// The revision string is a `;`-terminated history whose last entry is the
+/// current revision: `51;`, `<none>51;`, or re-saved files such as `47;51;` and
+/// `15;17;22;` (observed in eDrawings 2026 output and official 8.05 samples).
+fn revision_history_matches(text: &[u8], revision: u32) -> bool {
+    let text = text.strip_prefix(b"<none>").unwrap_or(text);
+    let Some(body) = text.strip_suffix(b";") else {
+        return false;
+    };
+    if body.is_empty() || body.len() > 128 {
+        return false;
+    }
+    let mut last = None;
+    for part in body.split(|b| *b == b';') {
+        if part.is_empty() || part.len() > 10 || !part.iter().all(u8::is_ascii_digit) {
+            return false;
+        }
+        last = std::str::from_utf8(part)
+            .ok()
+            .and_then(|s| s.parse::<u32>().ok());
+        if last.is_none() {
+            return false;
+        }
+    }
+    last == Some(revision)
+}
+
+/// Bytes of a labeled field of the accepted first eDrawings header, if any.
+pub(crate) fn first_header_field<'a>(
+    parsed: &'a hsf_core::HsfDocument,
+    label: &str,
+) -> Option<&'a [u8]> {
+    let record = parsed.records.get(3)?;
+    if record.opcode != b'[' {
+        return None;
+    }
+    let layout = record.user_data.as_ref()?;
+    let field = layout.fields.iter().find(|f| f.label == label)?;
+    parsed.source_bytes(&field.source)
+}
+
+/// ASCII text of a labeled first-header field, trimmed; None when absent or not text.
+pub(crate) fn first_header_text(parsed: &hsf_core::HsfDocument, label: &str) -> Option<String> {
+    let bytes = first_header_field(parsed, label)?;
+    if bytes.is_empty() || !bytes.is_ascii() || bytes.iter().any(|b| b.is_ascii_control()) {
+        return None;
+    }
+    Some(String::from_utf8_lossy(bytes).trim().to_owned())
+}
+
 fn mismatch(message: &str) -> HsfError {
     HsfError {
         diagnostic: Box::new(hsf_core::Diagnostic {
@@ -227,9 +292,7 @@ impl UserDataProfile for FirstBe {
         c.blob("configuration_candidate", None)?;
         c.take("opaque_flags", 2)?;
         let text = c.blob("revision_string_candidate", None)?;
-        if text != format!("{revision};").as_bytes()
-            && text != format!("<none>{revision};").as_bytes()
-        {
+        if !revision_history_matches(text, revision) {
             return Err(mismatch("Revision integer and string disagree"));
         }
         c.take("opaque_flag", 1)?;
@@ -317,13 +380,17 @@ impl UserDataProfile for BeEnvelope {
         }) else {
             return Ok(None);
         };
-        if revision == 47 {
-            return terminal_bitmaps(context, bytes, revision).map(Some);
-        }
         // This is an exact opaque envelope, not a guess about integer widths or
         // a correction added to the declared length. It must occupy the entire
         // remaining decoded domain, followed by z, and the parent must end in 0.
+        // Revision 47 files carry configuration bitmaps instead; eDrawings 2026
+        // writes the same bitmap envelope under revision 51 (observed on a
+        // re-saved 11-configuration assembly), so the longer form is tried
+        // whenever the plain envelope cannot fill the domain.
         let zeros = if revision == 22 { 8 } else { 12 };
+        if revision == 47 || (revision >= 45 && bytes.len() != 12 + zeros) {
+            return terminal_bitmaps(context, bytes, revision).map(Some);
+        }
         if bytes.len() != 12 + zeros || bytes.last() != Some(&b'z') {
             return Err(mismatch(
                 "Terminal envelope does not fill the remaining compressed domain",

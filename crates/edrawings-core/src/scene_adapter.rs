@@ -247,6 +247,9 @@ pub(crate) fn read(
         max_definitions: limits.max_scene_definitions,
         inventory_user_data_record: None,
         inventory_terminal_user_data_record: None,
+        mount_path: None,
+        placement: context.placement.backend(),
+        traversal: hsf_core::Traversal::All,
     };
     let context = |e: hsf_core::HsfError| Error::Format(Box::new(diagnostic(&id, *e.diagnostic)));
     let parsed = hsf_core::parse_precharged_with_user_data(
@@ -259,6 +262,7 @@ pub(crate) fn read(
     scene_options.inventory_user_data_record = profiles.user_data.inventory_record(&parsed.data);
     scene_options.inventory_terminal_user_data_record =
         profiles.user_data.inventory_terminal_record(&parsed.data);
+    scene_options.mount_path = profiles.user_data.mount_path(&parsed.data);
     let scene = hsf_core::scene(&parsed, &scene_options, budget).map_err(context)?;
     // Projection retains metadata and an independently readable HSF summary.
     let path_bytes: u64 = scene
@@ -377,7 +381,8 @@ pub(crate) fn read(
                         + scene.data.references.len()
                         + scene.data.primitives.len()
                         + scene.data.user_options.len()
-                        + scene.data.user_indices.len()) as u64
+                        + scene.data.user_indices.len()
+                        + scene.data.user_index_data.len()) as u64
                 + 8192
                     * (scene.data.nodes.len()
                         + scene.data.instances.len()
@@ -566,6 +571,8 @@ pub(crate) fn read(
             .into_iter()
             .map(|a| NullShell {
                 mesh_id: a.mesh_id.map(|s| qualify(&s)),
+                instance_of: a.instance_of.map(|s| qualify(&s)),
+                instance_transform: a.instance_transform,
                 id: qualify(&a.id),
                 node_id: qualify(&a.node_id),
                 source_record_id: qualify(&a.source_record_id),
@@ -581,6 +588,17 @@ pub(crate) fn read(
                 source_record_id: qualify(&a.source_record_id),
                 source: source(&id, a.source),
                 layout: hsf_adapter::user_index(&id, a.layout),
+                interpretation_status: status(a.interpretation_status),
+            })
+            .collect(),
+        user_index_data: data
+            .user_index_data
+            .into_iter()
+            .map(|a| UserIndexData {
+                node_id: qualify(&a.node_id),
+                source_record_id: qualify(&a.source_record_id),
+                source: source(&id, a.source),
+                layout: hsf_adapter::user_index_data(&id, a.layout),
                 interpretation_status: status(a.interpretation_status),
             })
             .collect(),
@@ -726,7 +744,7 @@ pub(crate) fn read(
                 path: i.path.iter().map(|p| qualify(p)).collect(),
                 world_transform: i.world_transform,
                 determinant: i.determinant,
-                display: display(&id, i.display),
+                display: display(&id, (*i.display).clone()),
             })
             .collect(),
         user_options: data
@@ -812,7 +830,7 @@ pub(crate) fn read(
             .map(|n| SceneNode {
                 implicit: n.implicit,
                 world_handedness: handedness(&id, n.world_handedness),
-                display: display(&id, n.display),
+                display: display(&id, (*n.display).clone()),
                 id: qualify(&n.id),
                 name: n.name,
                 name_source: n.name_source.map(|s| source(&id, s)),
@@ -839,7 +857,7 @@ pub(crate) fn read(
             .instances
             .into_iter()
             .map(|i| SceneInstance {
-                display: display(&id, i.display),
+                display: display(&id, (*i.display).clone()),
                 world_handedness: handedness(&id, i.world_handedness),
                 id: qualify(&i.id),
                 mesh_id: qualify(&i.mesh_id),
@@ -880,7 +898,7 @@ fn handedness(
     })
 }
 
-fn text_value(id: &str, t: hsf_core::TextValue) -> TextValue {
+pub(crate) fn text_value(id: &str, t: hsf_core::TextValue) -> TextValue {
     TextValue {
         encoding: t.encoding,
         encoding_code: t.encoding_code,

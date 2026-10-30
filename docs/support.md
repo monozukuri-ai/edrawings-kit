@@ -29,6 +29,8 @@ The parser does not require eDrawings or the HOOPS SDK at runtime.
 | Attributes | Stored information for supported colors, visibility, matrices, line styles, fonts, glyphs, and rendering settings |
 | Documents | Supported sheets/views, component trees and local transforms, multiple configurations, and limited drawing units |
 | Product-specific User Data and images | Explicitly selected experimental profiles only |
+| Display bundles | Estimated placements from the stored segment tree, matrices, includes and repeat instances; one saved configuration; colours from HSF, `materials.xml` or `defaultcolor`; names from options, text and User Index Data; `model_units` when written; the active configuration and eDrawings' display-state visibility (hidden components left out unless requested); preview extraction |
+| Writers | SOLIDWORKS eDrawings writers (HSF 19.10, 2014–2026) and eDrawings 2026 HOOPS Exchange imports (3DF 20.10 records behind a 19.10 header: priority, user index data, three-word rendering options, backquoted names); older 8.05 / 14.50 profiles |
 
 ZIP64, split or encrypted ZIP archives, unknown compression methods, and HSF data
 or writers outside the supported profiles are not supported. Semantic processing
@@ -40,8 +42,10 @@ references, clipping, and other features. Use `edrawings_kit.build_info()` or
 
 Reading geometry definitions does not necessarily establish world placement or
 final appearance. Check `placement_status`, the document `assessment`, each
-inventory and attribute status, and diagnostics. The parser does not emit
-uncertain placements when unresolved information remains.
+inventory and attribute status, and diagnostics. By default the parser does not
+emit uncertain placements when unresolved information remains; `read_display()`
+and `placement="scene_graph_v1"` return estimates that are labeled as such and
+never claim the producer's arrangement.
 
 The project does not provide support for all eDrawings files, rendering equivalent
 to the official viewer, editable B-Rep or modeling history, recovery of original

@@ -1,5 +1,7 @@
 //! Multiple saved configN groups with explicit `config name` User Options.
-//! Source order and ownership are retained; native active selection is separate.
+//! Source order and ownership are retained. The active configuration is the one
+//! group the writer left visible (every other `configN` segment carries a face
+//! visibility off record); without that marker none is claimed.
 use crate::*;
 use std::collections::{HashMap, HashSet};
 const PROFILE: &str = "edrawings_multi_config_options_v1";
@@ -180,11 +182,25 @@ pub(crate) fn inventory(
         }
         membership.insert(n.id.as_str(), owner);
     }
+    let hidden = |c: &StoredConfiguration| {
+        nodes
+            .get(c.node_id.as_str())
+            .and_then(|n| n.face_visible.as_ref())
+            .is_some_and(|a| !a.value)
+    };
+    let active_configuration_node_id = if result.iter().any(hidden) {
+        result
+            .iter()
+            .find(|c| !hidden(c))
+            .map(|c| c.node_id.clone())
+    } else {
+        None
+    };
     Ok(ConfigurationInventory {
         profile: PROFILE.into(),
         status: Status::Complete,
         reason: None,
         configurations: result,
-        active_configuration_node_id: None,
+        active_configuration_node_id,
     })
 }

@@ -34,9 +34,9 @@ generic-array 0.14.7: MIT
 heck 0.5.0: MIT OR Apache-2.0
   heck-0.5.0/LICENSE-APACHE
   heck-0.5.0/LICENSE-MIT
-hsf-core 0.1.0-alpha.1: Apache-2.0
-  hsf-core-0.1.0-alpha.1/LICENSE
-  hsf-core-0.1.0-alpha.1/NOTICE
+hsf-core 0.1.0-alpha.3: Apache-2.0
+  hsf-core-0.1.0-alpha.3/LICENSE
+  hsf-core-0.1.0-alpha.3/NOTICE
 itoa 1.0.18: MIT OR Apache-2.0
   itoa-1.0.18/LICENSE-APACHE
   itoa-1.0.18/LICENSE-MIT

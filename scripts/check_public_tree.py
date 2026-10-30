@@ -9,7 +9,7 @@ import subprocess
 from pathlib import Path
 from urllib.parse import unquote
 
-from verify_artifacts import SELF_AUTHORED_EDRW, check_names
+from verify_artifacts import SELF_AUTHORED, check_names
 
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_DOCS = {"api.md", "cli.md", "development.md", "distribution.md", "support.md"}
@@ -59,11 +59,16 @@ def verify(root: Path = ROOT) -> int:
         if path.is_symlink():
             raise ValueError(f"Public source must not link to local data: {relative}")
         check_path(relative)
-        if path.name in SELF_AUTHORED_EDRW:
-            if (
-                hashlib.sha256(path.read_bytes()).hexdigest()
-                != SELF_AUTHORED_EDRW[path.name]
-            ):
+        expected_digest = next(
+            (
+                digests[path.name]
+                for directory, digests in SELF_AUTHORED.items()
+                if path.name in digests and path.parent.name == directory
+            ),
+            None,
+        )
+        if expected_digest is not None:
+            if hashlib.sha256(path.read_bytes()).hexdigest() != expected_digest:
                 raise ValueError(f"Fixture digest mismatch: {relative}")
         if path.suffix == ".md":
             content = path.read_text(encoding="utf-8")

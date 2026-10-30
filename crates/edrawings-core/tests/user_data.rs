@@ -250,3 +250,67 @@ fn adjacent_handedness_authorizes_inventory_but_not_placements() {
         }
     }
 }
+
+fn block_with_revision_string(revision: u32, text: &[u8]) -> Vec<u8> {
+    fn blob(out: &mut Vec<u8>, b: &[u8]) {
+        out.push(b.len() as u8);
+        out.extend(b);
+    }
+    let mut p = vec![0xbe];
+    for s in [
+        b"2018-01.00".as_slice(),
+        b"SWeModels-26.0.1.0001-2017284",
+        b"",
+        b"",
+    ] {
+        blob(&mut p, s);
+    }
+    p.push(0);
+    p.extend([0; 64]);
+    p.extend(revision.to_le_bytes());
+    p.push(1);
+    p.extend([0; 16]);
+    blob(&mut p, b"");
+    blob(&mut p, &[0; 16]);
+    blob(&mut p, &[0; 16]);
+    blob(&mut p, b"Config-12");
+    p.extend([1, 0]);
+    blob(&mut p, text);
+    p.push(0);
+    blob(&mut p, &[0; 24]);
+    p.extend([0; 48]);
+    let mut out = vec![b'['];
+    out.extend((p.len() as u32 - 2).to_le_bytes());
+    out.extend(p);
+    out.push(b']');
+    out
+}
+#[test]
+fn revision_history_strings_must_end_with_the_current_revision() {
+    for (text, ok) in [
+        (b"51;".as_slice(), true),
+        (b"<none>51;", true),
+        (b"47;51;", true),
+        (b"15;17;51;", true),
+        (b"51;47;", false),
+        (b"47;", false),
+        (b"51", false),
+        (b";51;", false),
+        (b"<none>", false),
+        (b"51;;", false),
+    ] {
+        let body = [block_with_revision_string(51, text), b"z".to_vec()].concat();
+        let d = doc(&file("19.10", &body, &root()));
+        let p = parse(&d);
+        let s = p.summary();
+        let accepted = s.records.len() > 3 && s.records[3].user_data.is_some();
+        assert_eq!(accepted, ok, "{text:?}");
+        if !ok {
+            assert!(
+                s.diagnostics
+                    .iter()
+                    .any(|d| d.code == "edrawings.user_data_profile_mismatch")
+            );
+        }
+    }
+}

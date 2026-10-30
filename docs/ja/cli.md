@@ -16,6 +16,7 @@
 | `hsf PATH [--entry ID]` | 有界HSF構文解析 |
 | `scene PATH [--entry ID]` | 汎用sceneの保存要素 |
 | `drawing PATH [--entry ID]` | 文書・図面inventoryと意味の対応状況 |
+| `display PATH [--entry ID]` | 表示用の束の要約（本体、推定インスタンス、構成、色の出所）。bufferはPython APIのみ |
 
 entry IDは`inspect`の`raw:0`／`entry:N`を使う。曖昧な複数eModelを勝手に選ばない。
 PATHを持つcommandは`--limits desktop|service`を受け、既定はdesktop。
@@ -23,7 +24,9 @@ PATHを持つcommandは`--limits desktop|service`を受け、既定はdesktop。
 `--user-data-profile disabled|edrawings_first_be_v2|edrawings_be_envelope_v1`と
 `--image-profile disabled|edrawings_1910_u32_v1`を受ける。
 profileは既定disabled、modeは既定partial。
-`scene/drawing`の`--import-root`は明示された絶対segment文脈のinventory用である。
+`scene/drawing/display`の`--import-root`は明示された絶対segment文脈のinventory用で、
+`--placement verified|scene_graph_v1`は検証済み配置か推定配置かを選ぶ（`display`の既定は`scene_graph_v1`と
+eDrawingsプロファイル）。`display`は`--colors materials_xml|hsf_only`、`--configuration NAME`、`--display-state NAME`、`--include-hidden`（eDrawingsが隠す部品を`visibility` 0で残す）も受ける。
 
 | 終了コード | stdout / stderr |
 | --- | --- |

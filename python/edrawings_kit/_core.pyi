@@ -8,6 +8,7 @@ class DocumentHandle:
         user_data_profile: str = ...,
         image_profile: str = ...,
         import_root: str | None = ...,
+        placement: str = ...,
     ) -> DrawingHandle: ...
     def read_scene(
         self,
@@ -16,7 +17,20 @@ class DocumentHandle:
         user_data_profile: str = ...,
         image_profile: str = ...,
         import_root: str | None = ...,
+        placement: str = ...,
     ) -> SceneHandle: ...
+    def read_display(
+        self,
+        entry_id: str | None = ...,
+        placement: str = ...,
+        colors: str = ...,
+        configuration: str | None = ...,
+        display_state: str | None = ...,
+        include_hidden: bool = ...,
+        user_data_profile: str = ...,
+        image_profile: str = ...,
+        import_root: str | None = ...,
+    ) -> DisplayHandle: ...
     def parse_hsf(
         self,
         entry_id: str | None = ...,
@@ -49,6 +63,12 @@ class SceneHandle:
     def source_bytes(self, domain_id: str, offset: int, length: int) -> bytes: ...
     def buffer(self, mesh_id: str, kind: str) -> bytes: ...
     def primitive_points(self, primitive_id: str) -> bytes: ...
+
+class DisplayHandle:
+    def summary_json(self) -> str: ...
+    def body_buffer(self, index: int, kind: str) -> bytes: ...
+    def instance_buffer(self, kind: str) -> bytes: ...
+    def preview(self) -> tuple[bytes, str] | None: ...
 
 class DrawingHandle:
     def summary_json(self) -> str: ...

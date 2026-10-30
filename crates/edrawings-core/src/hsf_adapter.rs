@@ -231,6 +231,8 @@ pub(crate) fn project(
             rendering: r.rendering.map(|a| RenderingLayout {
                 mask: a.mask,
                 value: a.value,
+                extended2_mask: a.extended2_mask,
+                extended2_value: a.extended2_value,
                 fields: a
                     .fields
                     .into_iter()
@@ -254,7 +256,8 @@ pub(crate) fn project(
                 point_count: a.point_count,
                 points: source(id, a.points),
             }),
-            user_index: r.user_index.map(|a| user_index(id, a)),
+            user_index: r.user_index.map(|a| user_index(id, *a)),
+            user_index_data: r.user_index_data.map(|a| user_index_data(id, *a)),
             line_weight: r.line_weight.map(|a| MarkerSizeLayout {
                 value_bits: a.value_bits,
                 units: a.units,
@@ -398,5 +401,19 @@ pub(crate) fn user_index(id: &str, a: hsf_core::UserIndexLayout) -> UserIndexLay
         count: a.count,
         indices: source(id, a.indices),
         values: source(id, a.values),
+    }
+}
+
+pub(crate) fn user_index_data(id: &str, a: hsf_core::UserIndexDataLayout) -> UserIndexDataLayout {
+    UserIndexDataLayout {
+        count: a.count,
+        entries: a
+            .entries
+            .into_iter()
+            .map(|e| UserIndexDataEntry {
+                index: e.index,
+                data: source(id, e.data),
+            })
+            .collect(),
     }
 }

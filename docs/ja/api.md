@@ -123,6 +123,45 @@ active構成や一般的な有効表示状態は補完しません。図面XYの
 `read_drawing(mode="strict")`は文書意味まで要求するため、現在は未対応の例外になります。
 汎用要素の厳密検査には、対応する入力で`read_scene(mode="strict")`を使ってください。
 
+## 表示用の束（read_display）
+
+`read_display()`は、1回の上限付き読み取りでビューアに必要なものを組み立てます。
+本体（body）はローカル座標のpacked buffer、インスタンス配置は保存された1構成分の推定値で、色と名前が付きます。
+
+```python
+display = doc.read_display()  # placement="scene_graph_v1", colors="materials_xml"
+s = display.summary
+print(s.document.writer, s.document.mount_path, s.configurations.selection)
+for body in s.bodies:
+    buffers = display.body_buffers(body.index)  # positions <f4 (N, 3)、triangles <u4 (T, 3)、edges <u4 (E, 2)
+instances = display.instance_buffers()  # matrices <f8 (N, 16)、bodies <u4、colors <u1 (N, 4)、face_visibility <u1、visibility <u1、names <u4
+preview = display.preview()  # (bytes, media type) または None
+```
+
+配置は保存されたsegment木、modelling matrix、include、in-placeのrepeat instanceから求めた推定値です。
+`edrawings.display_placement_estimated`と`hsf.placement_estimated`で明示し、未解釈の情報が残る間は
+`complete`になりません。`placement="verified"`は従来どおり配置を出しません。行列はHSFの行ベクトル規約で
+元の単位のままです。Include Library配下のsegmentはinclude経由だけで描き、ファイルrootより上へ遡る相対パスは
+先頭headerに記録されたmount path（`document.mount_path`）で解決します。
+
+表示する構成は1つです。`configuration=`（`config name`または`configN`）、無ければファイルのactive構成、無ければ
+最初の構成を選びます。eDrawingsはactive（current）な構成の`configN`segmentだけを可視のまま残し、他の構成のsegmentには
+faceの可視性offのレコードを書きます（`ShowConfiguration`後に保存し直すとこの印が移ります）。`configurations.active_node_id`と
+各候補の`hidden`がそれを報告し、印があるときの`selection`は`active`です。各候補の`display_state`は`displaystates`segmentの
+`current`（無ければ`default`）、`display_states`は保存された`dispN`の一覧（`name`オプション、`current`/`default`、可視性項目の数）です。
+`display_state=`（`dispN`segmentかその名前）で表示中の構成の別の表示状態を適用でき、`configurations.shown_display_state`と
+`display_state_selection`（`explicit`/`current`/`default`/`none`）がどれを適用したかを報告します。無い名前は`display.display_state_unknown`になります。辿るのはその構成の部分木だけです（hsf-coreの`Traversal::Subtree`、診断`hsf.traversal_subtree`）ので、11構成の組立でも1構成分のインスタンスで済み、他の構成は`configurations.candidates`にインスタンス数0で列挙します。eDrawings 2026が符号拡張したUTF-8バイト（`ピン`がU+FFE3 U+FF83 U+FF94…）で書くUnicode Optionsは、解釈後のオプション値では元の文字列に戻します（生のレコードは保存されたコード単位のまま）。色はインスタンスごとに、
+継承したHSFの色 → 本体のsegmentパスに一致する`materials.xml`のEntity → 部品の`defaultcolor`オプションの順で決め、
+`colors="hsf_only"`は最初だけを使います。名前はinclude手前の部品の連なりから取ります: 部品のtext、`mbd_comp_name`または`name`オプション、User Index Dataの`name`項目（eDrawings 2026などHOOPS Exchange系の書き手）で、連続する重複は畳みます。include先の部分木にある名前は`DisplayBody.name`（`Body 0`）になり、部品名の無いインスタンスは本体名、無ければincludeしたsegment名です。`document.model_name`は`model_root`の名前、`document.model_units`は書き手が記録したモデル単位あたりのmm（`1`=mm、`1000`=m、`25.4`=inch）で、SOLIDWORKSの書き手はこの項目を書かずメートルで保存します。
+`face_visibility`は保存されたHSFのface可視フラグ（0 off、1 on、2 未設定）、`visibility`はeDrawingsが表示するか（1 表示、0 非表示）です。
+部品のsegmentにそのフラグoff（eDrawingsは併せて`defaultvisibility=off`を書く）があれば既定で非表示、表示中の表示状態の`compN`項目
+（`path=<segment path>,vis=on|off`）がその部品以下を上書きします。非表示のインスタンスは`include_hidden=True`のときだけbufferに残り、
+`statistics.hidden_instances`/`hidden_bodies`が件数、`edrawings.display_hidden_components`が表示状態名を報告します。部品ごとの
+`showbits0`/`showbits1`は解釈しません（可視性には不要）。eDrawings 側でも `annotviews` の語は注釈カテゴリの表示フィルタ（bit 0 が親スイッチ、bit 10/2/34/55 が寸法カテゴリ 1〜4）にしか使われず、部品の語は読み手が参照しないため、形状の可視性には関係しません。
+
+インスタンスの無い本体、線だけのmeshの省略、途中停止、未解析バイト、色の出所は`statistics`と`diagnostics`に出ます。
+`read_scene()`と`read_drawing()`も`placement=`を受けます。
+
 ## 出典と資源制限
 
 `source_bytes(span)`は指定された展開後domain内の元バイトを返します。

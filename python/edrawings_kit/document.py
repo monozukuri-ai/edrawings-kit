@@ -7,6 +7,9 @@ from typing import Literal
 from . import _core
 from .errors import _native_errors
 from .models import (
+    BodyBuffers,
+    ColorPolicy,
+    DisplaySummary,
     DrawingSummary,
     Extraction,
     ExtractionInfo,
@@ -14,8 +17,10 @@ from .models import (
     HsfSpan,
     HsfSummary,
     Inspection,
+    InstanceBuffers,
     MeshBuffers,
     NumericBuffer,
+    PlacementPolicy,
     SceneSummary,
     XmlMetadata,
     _decode,
@@ -97,8 +102,13 @@ class Document:
         ] = "disabled",
         image_profile: Literal["disabled", "edrawings_1910_u32_v1"] = "disabled",
         import_root: str | None = None,
+        placement: PlacementPolicy = "verified",
     ) -> SceneResult:
         """Read generic meshes and drawing primitives. Unknown units stay None.
+
+        placement="scene_graph_v1" estimates instances from the stored segment
+        tree, matrices and references even when verified placement is withheld;
+        the result stays partial and carries hsf.placement_estimated.
 
         Coordinates and normals are local; apply each instance's row-vector
         world_transform once. Check status and diagnostics before using geometry.
@@ -113,9 +123,53 @@ class Document:
         """
         with _native_errors():
             handle = self._handle.read_scene(
-                entry_id, mode, user_data_profile, image_profile, import_root
+                entry_id, mode, user_data_profile, image_profile, import_root, placement
             )
         return SceneResult(_decode(SceneSummary, handle.summary_json()), handle)
+
+    def read_display(
+        self,
+        entry_id: str | None = None,
+        *,
+        placement: PlacementPolicy = "scene_graph_v1",
+        colors: ColorPolicy = "materials_xml",
+        configuration: str | None = None,
+        display_state: str | None = None,
+        include_hidden: bool = False,
+        user_data_profile: Literal[
+            "disabled", "edrawings_first_be_v2", "edrawings_be_envelope_v1"
+        ] = "edrawings_be_envelope_v1",
+        image_profile: Literal["disabled", "edrawings_1910_u32_v1"] = (
+            "edrawings_1910_u32_v1"
+        ),
+        import_root: str | None = None,
+    ) -> DisplayResult:
+        """Build a display bundle: bodies as packed buffers plus estimated instances.
+
+        One saved configuration is shown: ``configuration`` (a config name or
+        configN segment), else the file's active configuration (the one the
+        writer left visible), else the first. ``display_state`` (a dispN
+        segment or its name) picks the display state whose visibility entries
+        apply, else the configuration's current one, else its default.
+        Components eDrawings hides are left out unless ``include_hidden``
+        (then ``visibility`` is 0 for them).
+        Colours come from the inherited HSF colour, then materials.xml, then a
+        component's defaultcolor option. Partial mode only; every estimate is
+        labeled in summary.diagnostics (edrawings.display_*).
+        """
+        with _native_errors():
+            handle = self._handle.read_display(
+                entry_id,
+                placement,
+                colors,
+                configuration,
+                display_state,
+                include_hidden,
+                user_data_profile,
+                image_profile,
+                import_root,
+            )
+        return DisplayResult(_decode(DisplaySummary, handle.summary_json()), handle)
 
     def read_drawing(
         self,
@@ -127,6 +181,7 @@ class Document:
         ] = "disabled",
         image_profile: Literal["disabled", "edrawings_1910_u32_v1"] = "disabled",
         import_root: str | None = None,
+        placement: PlacementPolicy = "verified",
     ) -> DrawingResult:
         """Inventory primitives and options with partial native drawing semantics.
 
@@ -139,7 +194,7 @@ class Document:
         """
         with _native_errors():
             handle = self._handle.read_drawing(
-                entry_id, mode, user_data_profile, image_profile, import_root
+                entry_id, mode, user_data_profile, image_profile, import_root, placement
             )
         return DrawingResult(_decode(DrawingSummary, handle.summary_json()), handle)
 
@@ -247,3 +302,54 @@ class DrawingResult:
             p for p in self.summary.scene.primitives if p.id == primitive_id
         )
         return NumericBuffer(data, "<f4", (primitive.point_count, 3))
+
+
+@dataclass(frozen=True)
+class DisplayResult:
+    """Bodies, instances and the preview of one display bundle."""
+
+    summary: DisplaySummary
+    _handle: _core.DisplayHandle
+
+    def body_buffers(self, index: int) -> BodyBuffers:
+        """Copy one body's local positions, normals, triangles and outline edges."""
+        with _native_errors():
+            positions = self._handle.body_buffer(index, "positions")
+            normals = self._handle.body_buffer(index, "normals")
+            triangles = self._handle.body_buffer(index, "triangles")
+            edges = self._handle.body_buffer(index, "edges")
+        body = self.summary.bodies[index]
+        return BodyBuffers(
+            NumericBuffer(positions, "<f4", (body.vertex_count, 3)),
+            NumericBuffer(normals, "<f4", (body.vertex_count, 3))
+            if body.has_normals
+            else None,
+            NumericBuffer(triangles, "<u4", (body.triangle_count, 3)),
+            NumericBuffer(edges, "<u4", (body.edge_count, 2)),
+        )
+
+    def instance_buffers(self) -> InstanceBuffers:
+        """Copy the per-instance arrays (see InstanceBuffers for conventions)."""
+        n = self.summary.instance_count
+        with _native_errors():
+            return InstanceBuffers(
+                NumericBuffer(self._handle.instance_buffer("matrices"), "<f8", (n, 16)),
+                NumericBuffer(self._handle.instance_buffer("bodies"), "<u4", (n,)),
+                NumericBuffer(self._handle.instance_buffer("colors"), "<u1", (n, 4)),
+                NumericBuffer(
+                    self._handle.instance_buffer("color_sources"), "<u1", (n,)
+                ),
+                NumericBuffer(
+                    self._handle.instance_buffer("face_visibility"), "<u1", (n,)
+                ),
+                NumericBuffer(self._handle.instance_buffer("visibility"), "<u1", (n,)),
+                NumericBuffer(self._handle.instance_buffer("names"), "<u4", (n,)),
+                NumericBuffer(
+                    self._handle.instance_buffer("component_paths"), "<u4", (n,)
+                ),
+            )
+
+    def preview(self) -> tuple[bytes, str] | None:
+        """The container's preview image bytes and media type, if present."""
+        with _native_errors():
+            return self._handle.preview()

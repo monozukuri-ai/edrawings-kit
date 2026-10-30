@@ -250,7 +250,14 @@ impl Document {
         budget.charge_output(self.original.len() as u64)?;
         Ok(budget)
     }
-    fn extract_budget(&self, id: &str, budget: &mut hsf_core::Budget) -> Result<Extraction, Error> {
+    pub(crate) fn limits(&self) -> &Limits {
+        &self.limits
+    }
+    pub(crate) fn extract_budget(
+        &self,
+        id: &str,
+        budget: &mut hsf_core::Budget,
+    ) -> Result<Extraction, Error> {
         let entry = self
             .inspection
             .entries
@@ -397,6 +404,19 @@ impl Document {
             self.inspection.stages.clone(),
             &mut budget,
         )
+    }
+    /// Build a display bundle: bodies as packed buffers and estimated instance
+    /// placements for one saved configuration, with colours and names.
+    /// Partial mode only; see `DisplayOptions`.
+    pub fn read_display(
+        &self,
+        entry_id: Option<&str>,
+        options: &DisplayOptions,
+    ) -> Result<DisplayResult, Error> {
+        let id = self.hsf_entry(entry_id)?;
+        let mut budget = self.operation_budget()?;
+        let extraction = self.extract_budget(id, &mut budget)?;
+        crate::display::read(self, extraction, options, &mut budget)
     }
     /// Inspect drawing primitives. Strict also requires verified document semantics,
     /// which are not yet available in this experimental profile.

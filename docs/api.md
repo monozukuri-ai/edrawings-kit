@@ -136,6 +136,77 @@ true dimensions, tolerances, or geometric references.
 unsupported-feature exception. For strict validation of generic elements, use
 `read_scene(mode="strict")` with supported input.
 
+## Display bundles
+
+`read_display()` builds what a viewer needs from one bounded read: bodies as
+packed local buffers and estimated instance placements for one saved
+configuration, with colours and names.
+
+```python
+display = doc.read_display()  # placement="scene_graph_v1", colors="materials_xml"
+s = display.summary
+print(s.document.writer, s.document.mount_path, s.configurations.selection)
+for body in s.bodies:
+    buffers = display.body_buffers(body.index)  # positions <f4 (N, 3), triangles <u4 (T, 3), edges <u4 (E, 2)
+instances = display.instance_buffers()  # matrices <f8 (N, 16), bodies <u4, colors <u1 (N, 4), face_visibility <u1, visibility <u1, names <u4
+preview = display.preview()  # (bytes, media type) or None
+```
+
+Placements follow the stored segment tree, modelling matrices, includes and
+in-place repeat instances. They are estimates, reported by
+`edrawings.display_placement_estimated` and `hsf.placement_estimated`; the
+result is never `complete` while unresolved state remains. `placement="verified"`
+keeps the fail-closed behaviour and returns no instances in that case. Matrices
+use HSF's row-vector convention in source units; nothing is converted. Segments
+under the Include Library render only through their includes, and relative
+paths that climb above the file root resolve through the mount path recorded in
+the first header (`document.mount_path`).
+
+One saved configuration is shown: `configuration=` (a `config name` or a `configN`
+segment), else the file's active configuration, else the first. eDrawings marks
+the active (current) configuration by leaving its `configN` segment visible and
+writing a face-visibility-off record on every other one, so re-saving after
+`ShowConfiguration` moves that marker; `configurations.active_node_id` and each
+candidate's `hidden` report it, and `selection` is `active` when the marker
+exists. Only the shown configuration's subtree is traversed (hsf-core
+`Traversal::Subtree`, reported by `hsf.traversal_subtree`), so an
+eleven-configuration assembly costs one configuration's instances; the other
+candidates are listed in `configurations.candidates` with an instance count of 0.
+Each candidate's `display_state` is the `current` (else `default`) state named in
+its `displaystates` segment, and `display_states` lists every saved `dispN` state
+with its `name` option, `current`/`default` flags and the number of visibility
+entries. `display_state=` (a `dispN` segment or a state name) applies another
+state of the shown configuration; `configurations.shown_display_state` and
+`display_state_selection` (`explicit`, `current`, `default` or `none`) report
+which one was applied, and an unknown request fails with
+`display.display_state_unknown`. Unicode Options that
+eDrawings 2026 writes as sign-extended UTF-8 bytes (`ピン` stored as
+U+FFE3 U+FF83 U+FF94 …) are recovered to the intended text in parsed option
+values; the raw records keep their stored code units. Colours are per
+instance: the inherited HSF colour, then the `materials.xml` entity matching the
+body's segment path, then a component's `defaultcolor` option (`colors="hsf_only"`
+keeps only the first). Names come from the component chain before the include:
+component text, `mbd_comp_name` or `name` options and User Index Data `name`
+entries (HOOPS Exchange based writers such as eDrawings 2026), with consecutive
+repeats collapsed; names stored inside the included subtree become
+`DisplayBody.name` (`Body 0`), and an instance without a component name takes
+the body name, else the including segment. `document.model_name` is the
+`model_root` name and `document.model_units` the writer's millimetres per model
+unit (`1` mm, `1000` m, `25.4` inch) when the option is present; SOLIDWORKS
+writers omit it and store metres. `face_visibility` reports the stored HSF face
+flag (0 off, 1 on, 2 unset); `visibility` is what eDrawings shows (1 shown, 0
+hidden). A component is hidden by default when its segment carries that flag off
+(eDrawings writes `defaultvisibility=off` beside it), and the shown display
+state's `compN` entries (`path=<segment path>,vis=on|off`) override the default
+for the named component and everything below it. Hidden instances are left out of
+the buffers unless `include_hidden=True`; `statistics.hidden_instances` and
+`hidden_bodies` count them and `edrawings.display_hidden_components` names the
+display state. The per-component `showbits0`/`showbits1` words are not
+interpreted (they are not needed for visibility). In eDrawings the document-level words on `annotviews` only drive its annotation-category display filter (bit 0 = master, bits 10/2/34/55 = dimension categories 1–4), so they do not affect geometry visibility either. Bodies without an instance, skipped line-only
+meshes, a stopped record, unparsed bytes and the colour sources are reported in
+`statistics` and `diagnostics`. `read_scene()` and `read_drawing()` also accept
+`placement=`.
+
 ## Source references and resource limits
 
 `source_bytes(span)` returns the original bytes in the specified decompressed

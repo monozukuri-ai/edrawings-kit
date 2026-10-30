@@ -62,6 +62,14 @@ print(drawing.summary.assessment.status)
 このプロファイルも完全な描画や配置を保証しません。未知の情報と元バイトを保持します。
 形状バッファ、文字、出典、例外の扱いは[Python APIガイド](docs/ja/api.md)を参照してください。
 
+ビューア向けには`read_display()`が、本体のpacked bufferと保存された1構成分の推定配置を、色と名前付きで返します。
+
+```python
+display = doc.read_display()
+print(display.summary.instance_count, display.summary.configurations.selection)
+instances = display.instance_buffers()  # 行列、本体index、色、名前
+```
+
 ## CLI
 
 ```bash

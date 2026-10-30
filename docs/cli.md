@@ -17,6 +17,7 @@ modify the input or access the network.
 | `hsf PATH [--entry ID]` | HSF syntax parsing with resource limits. |
 | `scene PATH [--entry ID]` | Stored elements of a generic scene. |
 | `drawing PATH [--entry ID]` | Document and drawing inventories, with semantic support status. |
+| `display PATH [--entry ID]` | Display bundle summary: bodies, estimated instances, configurations and colour sources. Buffers are available through the Python API only. |
 
 Use the `raw:0` or `entry:N` IDs returned by `inspect`. When multiple eModel entries
 are ambiguous, the CLI requires an explicit selection.
@@ -28,8 +29,11 @@ Commands that accept `PATH` also accept `--limits desktop|service`, defaulting t
 - `--user-data-profile disabled|edrawings_first_be_v2|edrawings_be_envelope_v1` (default: `disabled`)
 - `--image-profile disabled|edrawings_1910_u32_v1` (default: `disabled`)
 
-For `scene` and `drawing`, `--import-root` supplies an explicit absolute segment
-context for inventory purposes.
+For `scene`, `drawing` and `display`, `--import-root` supplies an explicit absolute
+segment context for inventory purposes, and `--placement verified|scene_graph_v1`
+selects verified or estimated placements (`display` defaults to `scene_graph_v1`
+and to the eDrawings profiles). `display` also accepts
+`--colors materials_xml|hsf_only`, `--configuration NAME`, `--display-state NAME` and `--include-hidden` (keep components eDrawings hides, with `visibility` 0).
 
 | Exit code | stdout / stderr |
 | --- | --- |

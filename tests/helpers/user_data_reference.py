@@ -108,7 +108,16 @@ def inspect_header(data: bytes, version: str) -> dict[str, Any]:
     config_name = c.blob("configuration_candidate")
     c.take("opaque_flags", 2)
     revision_text = c.blob("revision_string_candidate")
-    if revision_text not in (f"{revision};".encode(), f"<none>{revision};".encode()):
+    # A `;`-terminated history whose last entry is the current revision, e.g.
+    # `51;`, `<none>51;`, `47;51;` (re-saved) or `15;17;22;` (official 8.05 sample).
+    history = revision_text.removeprefix(b"<none>")
+    parts = history.split(b";")
+    if (
+        len(parts) < 2
+        or parts[-1] != b""
+        or any(not p.isdigit() or len(p) > 10 for p in parts[:-1])
+        or int(parts[-2]) != revision
+    ):
         raise ProfileMismatch("Revision integer and string do not corroborate")
     c.take("opaque_flag", 1)
     c.blob("opaque_blob_2", 24)

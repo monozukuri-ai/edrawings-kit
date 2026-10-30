@@ -26,12 +26,13 @@ def main(argv: list[str] | None = None) -> int:
         "hsf",
         "scene",
         "drawing",
+        "display",
         "verify",
     ):
         sub = subs.add_parser(command)
         sub.add_argument("path", type=Path)
         sub.add_argument("--limits", choices=("desktop", "service"), default="desktop")
-        if command in ("extract", "hsf-header", "hsf", "scene", "drawing"):
+        if command in ("extract", "hsf-header", "hsf", "scene", "drawing", "display"):
             sub.add_argument(
                 "--entry",
                 required=command == "extract",
@@ -41,6 +42,8 @@ def main(argv: list[str] | None = None) -> int:
             sub.add_argument("--output", type=Path, required=True)
         if command in ("hsf", "scene", "drawing"):
             sub.add_argument("--mode", choices=("partial", "strict"), default="partial")
+        if command in ("hsf", "scene", "drawing", "display"):
+            display = command == "display"
             sub.add_argument(
                 "--user-data-profile",
                 choices=(
@@ -48,20 +51,48 @@ def main(argv: list[str] | None = None) -> int:
                     "edrawings_first_be_v2",
                     "edrawings_be_envelope_v1",
                 ),
-                default="disabled",
+                default="edrawings_be_envelope_v1" if display else "disabled",
             )
             sub.add_argument(
                 "--image-profile",
                 choices=("disabled", "edrawings_1910_u32_v1"),
-                default="disabled",
+                default="edrawings_1910_u32_v1" if display else "disabled",
             )
-        if command in ("scene", "drawing"):
+        if command in ("scene", "drawing", "display"):
             sub.add_argument(
                 "--import-root",
                 help=(
                     "Explicit absolute import segment for inventory; "
                     "external state remains unknown"
                 ),
+            )
+            sub.add_argument(
+                "--placement",
+                choices=("verified", "scene_graph_v1"),
+                default="scene_graph_v1" if command == "display" else "verified",
+                help=(
+                    "scene_graph_v1 estimates instances when verified placement "
+                    "is withheld"
+                ),
+            )
+        if command == "display":
+            sub.add_argument(
+                "--colors",
+                choices=("materials_xml", "hsf_only"),
+                default="materials_xml",
+            )
+            sub.add_argument(
+                "--configuration",
+                help="Saved configuration to show (config name or configN segment)",
+            )
+            sub.add_argument(
+                "--display-state",
+                help="Display state to apply (dispN segment or its name)",
+            )
+            sub.add_argument(
+                "--include-hidden",
+                action="store_true",
+                help="Keep components eDrawings hides (visibility buffer 0)",
             )
     args = parser.parse_args(argv)
     try:
@@ -90,11 +121,25 @@ def main(argv: list[str] | None = None) -> int:
                         user_data_profile=args.user_data_profile,
                         image_profile=args.image_profile,
                         import_root=args.import_root,
+                        placement=args.placement,
                     ).summary.to_dict()
                 elif args.command == "scene":
                     result = doc.read_scene(
                         args.entry,
                         mode=args.mode,
+                        user_data_profile=args.user_data_profile,
+                        image_profile=args.image_profile,
+                        import_root=args.import_root,
+                        placement=args.placement,
+                    ).summary.to_dict()
+                elif args.command == "display":
+                    result = doc.read_display(
+                        args.entry,
+                        placement=args.placement,
+                        colors=args.colors,
+                        configuration=args.configuration,
+                        display_state=args.display_state,
+                        include_hidden=args.include_hidden,
                         user_data_profile=args.user_data_profile,
                         image_profile=args.image_profile,
                         import_root=args.import_root,

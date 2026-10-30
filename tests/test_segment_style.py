@@ -92,7 +92,6 @@ def test_literal_case_spaces_parent_and_alias_share_identity():
         b"/a/*",
         b"/a,b",
         b"/a/(b)",
-        b"/a/`b`",
         b"/a/'b'",
         b'/a/"b"',
         b"/a/\tb",

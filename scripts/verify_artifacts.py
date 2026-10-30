@@ -47,11 +47,52 @@ SELF_AUTHORED_EDRW = {
     ),
 }
 
+# Self-authored EPRT/EASM written by eDrawings 2026 from STEP files the project
+# generated (OCCT box) or owns (cad3d-ir-step reference assembly). Units and
+# axes are known from the STEP sources, so these are the display oracles.
+SELF_AUTHORED_DISPLAY = {
+    "box-100x50x20mm.step": (
+        "3deb6b35f5ad1fa989632d45e7031a60c54f66e25375cd4ebca098e1f859de18"
+    ),
+    "box-100x50x20mm.eprt": (
+        "463b1ec21b0fe6083a93b7b3bd7b3921fb70e989f0972da219d238d2dbe686be"
+    ),
+    "box-100x50x20mm-as-m.step": (
+        "f0018cf4ab5c76ef1326ffb7f936e9440d9be96acd68534b61b6fb38a54a0127"
+    ),
+    "box-100x50x20mm-as-m.eprt": (
+        "e916b99c9b9219a40ed0e48ab0f44ece977cb8ec58454b0830646c0d57989b06"
+    ),
+    "box-100x50x20mm-as-inch.step": (
+        "50dde32bbf722f7635eaf855616a5856ccfe6e3782520b056fd6c1de2e5531d6"
+    ),
+    "box-100x50x20mm-as-inch.eprt": (
+        "089e78d01965e30d1a7c471552cde789a9443eeff3c4271e9f1de713b9b8175f"
+    ),
+    "reference-assembly.step": (
+        "ce52a8347e020edfde44305023aa882f465adb2c621b33651cb8fa5da4d8e76b"
+    ),
+    "reference-assembly.easm": (
+        "41c86cdbcc1b204c0278c2f070daa42cd61a055118718d2ec1f48f155a3b5d0a"
+    ),
+    "japanese-names-assembly.step": (
+        "460d9be9353ea8550700bf93c23309f646557ce5134f73c3d8183ef29c44158e"
+    ),
+    "japanese-names-assembly.easm": (
+        "c79b0e902e66dbd685d1770ecf58c791782e09286b6bd870e342b45b0e7568fe"
+    ),
+}
+
+SELF_AUTHORED = {
+    "native-m4": SELF_AUTHORED_EDRW,
+    "native-display": SELF_AUTHORED_DISPLAY,
+}
+
 
 def fixture_digest(name: str) -> str | None:
     parts = PurePosixPath(name).parts
-    if len(parts) == 5 and parts[1:4] == ("tests", "fixtures", "native-m4"):
-        return SELF_AUTHORED_EDRW.get(parts[-1])
+    if len(parts) == 5 and parts[1:3] == ("tests", "fixtures"):
+        return SELF_AUTHORED.get(parts[3], {}).get(parts[-1])
     return None
 
 

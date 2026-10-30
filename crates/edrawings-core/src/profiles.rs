@@ -25,9 +25,32 @@ pub struct HsfProfiles {
     pub image: ImagePolicy,
 }
 
-/// Caller-provided import namespace. External attributes/geometry are not loaded.
+/// How unresolved state affects instance placement. `Verified` (default) withholds
+/// every placement while opaque User Data, unevaluated settings or unresolved
+/// bindings remain. `SceneGraphV1` estimates placements from the stored segment
+/// tree, modelling matrices and references anyway; results are labeled estimates
+/// (`hsf.placement_estimated`) and strict mode rejects the policy.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlacementPolicy {
+    #[default]
+    Verified,
+    SceneGraphV1,
+}
+impl PlacementPolicy {
+    pub(crate) fn backend(self) -> hsf_core::PlacementPolicy {
+        match self {
+            Self::Verified => hsf_core::PlacementPolicy::Verified,
+            Self::SceneGraphV1 => hsf_core::PlacementPolicy::BestEffort,
+        }
+    }
+}
+
+/// Caller-provided import namespace and placement policy. External
+/// attributes/geometry are not loaded.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct SceneContext {
     pub import_root: Option<String>,
+    pub placement: PlacementPolicy,
 }

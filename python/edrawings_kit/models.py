@@ -195,6 +195,7 @@ class HsfRecord(Model):
     named_style: NamedStyleLayout | None
     clip_region: ClipRegionLayout | None
     user_index: UserIndexLayout | None
+    user_index_data: UserIndexDataLayout | None
     visibility: VisibilityLayout | None
     line_style: LineStyleLayout | None
     glyph: GlyphLayout | None
@@ -284,7 +285,7 @@ class ShellLayout(Model):
 @dataclass(frozen=True)
 class NumericBuffer:
     data: bytes
-    dtype: Literal["<f4", "<i4", "<u4"]
+    dtype: Literal["<f4", "<f8", "<i4", "<u4", "<u1"]
     shape: tuple[int, ...]
 
 
@@ -399,6 +400,7 @@ class SceneSummary(Model):
     primitive_instances: tuple[PrimitiveInstance, ...]
     user_options: tuple[UserOptions, ...]
     user_indices: tuple[UserIndices, ...]
+    user_index_data: tuple[UserIndexData, ...]
     hsf: HsfSummary
     status: Status
     units: str | None
@@ -813,12 +815,16 @@ class OperandField(Model):
 class RenderingLayout(Model):
     mask: int
     value: int
+    extended2_mask: int
+    extended2_value: int
     fields: tuple[OperandField, ...]
 
 
 @dataclass(frozen=True)
 class NullShell(Model):
     mesh_id: str | None
+    instance_of: str | None
+    instance_transform: tuple[float, ...] | None
     id: str
     node_id: str
     source_record_id: str
@@ -864,6 +870,31 @@ class UserIndices(Model):
     source_record_id: str
     source: HsfSpan
     layout: UserIndexLayout
+    interpretation_status: Status
+
+
+@dataclass(frozen=True)
+class UserIndexDataEntry(Model):
+    index: int
+    data: HsfSpan
+
+
+@dataclass(frozen=True)
+class UserIndexDataLayout(Model):
+    """TKE_User_Index_Data (`m`): count, then (index, size, bytes) entries."""
+
+    count: int
+    entries: tuple[UserIndexDataEntry, ...]
+
+
+@dataclass(frozen=True)
+class UserIndexData(Model):
+    """Segment metadata blobs keyed by application index (bytes stay source-backed)."""
+
+    node_id: str
+    source_record_id: str
+    source: HsfSpan
+    layout: UserIndexDataLayout
     interpretation_status: Status
 
 
@@ -1365,3 +1396,152 @@ class GlyphCommand(Model):
     color: tuple[int, ...]
     source: HsfSpan
     payload_source: HsfSpan
+
+
+PlacementPolicy = Literal["verified", "scene_graph_v1"]
+ColorPolicy = Literal["materials_xml", "hsf_only"]
+#: Instance colour sources in ``InstanceBuffers.color_sources``.
+COLOR_SOURCE_NONE = 0
+COLOR_SOURCE_HSF = 1
+COLOR_SOURCE_MATERIALS = 2
+COLOR_SOURCE_OPTION = 3
+
+
+@dataclass(frozen=True)
+class DisplayDocument(Model):
+    """Container and first-header facts; strings are stored values, not claims."""
+
+    entry_id: str
+    hsf_version: str
+    writer: str | None
+    writer_year_hint: int | None
+    configuration_candidate: str | None
+    revision_history: str | None
+    mount_path: str | None
+    user_data_profile: str | None
+    preview_entry_id: str | None
+    preview_media_type: str | None
+    materials_entry_id: str | None
+    model_name: str | None
+    model_units: float | None
+
+
+@dataclass(frozen=True)
+class DisplayState(Model):
+    """One saved display state (``dispN`` segment) of a configuration."""
+
+    segment_name: str
+    name: str | None
+    current: bool
+    default: bool
+    components: int
+
+
+@dataclass(frozen=True)
+class DisplayConfiguration(Model):
+    node_id: str
+    segment_name: str
+    name: str | None
+    instances: int
+    hidden: bool
+    display_state: str | None
+    display_states: tuple[DisplayState, ...]
+
+
+@dataclass(frozen=True)
+class DisplayConfigurations(Model):
+    candidates: tuple[DisplayConfiguration, ...]
+    selected_node_id: str | None
+    active_node_id: str | None
+    selection: Literal["none", "explicit", "active", "first"]
+    shown_display_state: str | None
+    display_state_selection: Literal["none", "explicit", "current", "default"]
+
+
+@dataclass(frozen=True)
+class DisplayBody(Model):
+    """One mesh definition in local coordinates; instances place it."""
+
+    index: int
+    mesh_id: str
+    null_shell_id: str | None
+    source_node_id: str
+    source_node_path: str
+    vertex_count: int
+    triangle_count: int
+    edge_count: int
+    has_normals: bool
+    bounds: tuple[tuple[float, ...], ...] | None
+    instance_count: int
+    name: str | None
+
+
+@dataclass(frozen=True)
+class DisplayStatistics(Model):
+    records: int
+    processed_records: int
+    nodes: int
+    meshes: int
+    bodies: int
+    instances: int
+    instances_before_configuration_filter: int
+    faces_off_instances: int
+    hidden_instances: int
+    hidden_bodies: int
+    line_only_instances_skipped: int
+    triangles: int
+    unplaced_bodies: int
+    colors_from_hsf: int
+    colors_from_materials: int
+    colors_from_options: int
+    stopped_record_id: str | None
+    unparsed_bytes: int
+
+
+@dataclass(frozen=True)
+class DisplaySummary(Model):
+    """Estimated display bundle; placements and colours are labeled by diagnostics."""
+
+    document: DisplayDocument
+    placement_policy: PlacementPolicy
+    placement_status: Status
+    status: Status
+    configurations: DisplayConfigurations
+    bodies: tuple[DisplayBody, ...]
+    instance_count: int
+    names: tuple[str, ...]
+    component_paths: tuple[str, ...]
+    statistics: DisplayStatistics
+    diagnostics: tuple[Diagnostic, ...]
+    usage: HsfUsage
+
+
+@dataclass(frozen=True)
+class BodyBuffers:
+    """Local coordinates in source units; ``normals`` is None when not stored."""
+
+    positions: NumericBuffer
+    normals: NumericBuffer | None
+    triangles: NumericBuffer
+    edges: NumericBuffer
+
+
+@dataclass(frozen=True)
+class InstanceBuffers:
+    """Per-instance arrays. ``matrices`` are row-major 4x4 with row vectors
+    (``p_world = p_local * matrix``); ``names``/``component_paths`` index the
+    tables of ``DisplaySummary``; ``colors`` are RGBA bytes, alpha 0 when none.
+    ``face_visibility`` is the stored HSF face flag (0 off, 1 on, 2 unset);
+    ``visibility`` is what eDrawings shows (1 shown, 0 hidden): that flag or a
+    ``defaultvisibility`` option, overridden by the active display state's
+    ``path=…,vis=on|off`` entries. Hidden instances are present only when
+    ``read_display(include_hidden=True)``."""
+
+    matrices: NumericBuffer
+    bodies: NumericBuffer
+    colors: NumericBuffer
+    color_sources: NumericBuffer
+    face_visibility: NumericBuffer
+    visibility: NumericBuffer
+    names: NumericBuffer
+    component_paths: NumericBuffer

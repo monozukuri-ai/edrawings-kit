@@ -9,7 +9,7 @@ from .api import (
     read,
     read_file,
 )
-from .document import Document, DrawingResult, HsfDocument, SceneResult
+from .document import DisplayResult, Document, DrawingResult, HsfDocument, SceneResult
 from .errors import (
     EdrawingsError,
     InvalidFormatError,
@@ -18,6 +18,11 @@ from .errors import (
 )
 from .limits import Limits
 from .models import (
+    COLOR_SOURCE_HSF,
+    COLOR_SOURCE_MATERIALS,
+    COLOR_SOURCE_NONE,
+    COLOR_SOURCE_OPTION,
+    BodyBuffers,
     BuildInfo,
     ByteAttribute,
     ByteRange,
@@ -31,6 +36,13 @@ from .models import (
     ConfigurationInventory,
     Diagnostic,
     DisplayAttributes,
+    DisplayBody,
+    DisplayConfiguration,
+    DisplayConfigurations,
+    DisplayDocument,
+    DisplayState,
+    DisplayStatistics,
+    DisplaySummary,
     DrawingAssessment,
     DrawingHeaderUnit,
     DrawingLengthOption,
@@ -68,6 +80,7 @@ from .models import (
     IndexedColorLayout,
     InputKind,
     Inspection,
+    InstanceBuffers,
     LinePattern,
     LinePatternAttribute,
     LineStyleBinding,
@@ -136,6 +149,9 @@ from .models import (
     TextValue,
     UserDataField,
     UserDataLayout,
+    UserIndexData,
+    UserIndexDataEntry,
+    UserIndexDataLayout,
     UserIndexLayout,
     UserIndices,
     UserOptionAssignment,
@@ -151,6 +167,20 @@ from .models import (
 
 __version__ = build_info().version
 __all__ = [
+    "COLOR_SOURCE_HSF",
+    "COLOR_SOURCE_MATERIALS",
+    "COLOR_SOURCE_NONE",
+    "COLOR_SOURCE_OPTION",
+    "BodyBuffers",
+    "DisplayBody",
+    "DisplayConfiguration",
+    "DisplayConfigurations",
+    "DisplayState",
+    "DisplayDocument",
+    "DisplayResult",
+    "DisplayStatistics",
+    "DisplaySummary",
+    "InstanceBuffers",
     "EnumeratedValue",
     "EnumeratedAttribute",
     "RenderingOperand",
@@ -267,6 +297,9 @@ __all__ = [
     "FloatColorAttribute",
     "NamedStyleLayout",
     "ClipRegionLayout",
+    "UserIndexData",
+    "UserIndexDataEntry",
+    "UserIndexDataLayout",
     "UserIndexLayout",
     "UserIndices",
     "ByteRange",

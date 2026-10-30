@@ -69,6 +69,15 @@ This profile also does not guarantee complete rendering or placement. Unknown
 information and original bytes are preserved. See the [Python API guide](docs/api.md)
 for geometry buffers, text, source references, and error handling.
 
+For viewers, `read_display()` returns bodies as packed buffers and estimated
+instance placements for one saved configuration, with colours and names:
+
+```python
+display = doc.read_display()
+print(display.summary.instance_count, display.summary.configurations.selection)
+instances = display.instance_buffers()  # matrices, body indices, colours, names
+```
+
 ## CLI
 
 ```bash

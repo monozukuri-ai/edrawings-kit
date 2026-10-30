@@ -2,6 +2,7 @@
 mod components;
 mod configurations;
 mod container;
+mod display;
 mod document;
 mod drawing;
 mod drawing_plane;
@@ -18,7 +19,8 @@ mod user_options;
 pub use drawing::*;
 pub use user_data::UserDataPolicy;
 mod profiles;
-pub use profiles::{HsfProfiles, ImagePolicy, SceneContext};
+pub use display::{BodyBuffers, ColorPolicy, DisplayOptions, DisplayResult, InstanceBuffers};
+pub use profiles::{HsfProfiles, ImagePolicy, PlacementPolicy, SceneContext};
 mod scene_adapter;
 pub use scene_adapter::*;
 
@@ -62,6 +64,13 @@ pub fn build_info() -> BuildInfo {
             "named_views",
             "world_handedness",
             "opaque_user_data_inventory",
+            "mount_path_from_first_header",
+            "revision_history_strings",
+            "scene_graph_placement_estimates",
+            "display_bundles",
+            "materials_xml_colors",
+            "configuration_selection",
+            "preview_image_extraction",
         ]
         .map(String::from)
         .to_vec(),

@@ -216,6 +216,33 @@ fn assignments(
     Ok(Ok(result))
 }
 
+/// eDrawings 2026 (HOOPS Exchange imports) writes Unicode Options by widening
+/// the UTF-8 bytes of a name with sign extension: every byte above 0x7f becomes
+/// the code unit 0xff00 | byte (`ピン` arrives as U+FFE3 U+FF83 U+FF94 …).
+/// Genuine text never consists solely of ASCII and U+FF80–U+FFFF code units
+/// that also form valid multi-byte UTF-8, so the intended text is recovered
+/// exactly; anything else is left untouched.
+fn sign_extended_utf8(value: &str) -> Option<String> {
+    let mut widened = false;
+    let mut bytes = Vec::with_capacity(value.len());
+    for c in value.chars() {
+        let code = u32::from(c);
+        if code < 0x80 {
+            bytes.push(code as u8);
+        } else if (0xff80..=0xffff).contains(&code) {
+            widened = true;
+            bytes.push((code & 0xff) as u8);
+        } else {
+            return None;
+        }
+    }
+    if !widened {
+        return None;
+    }
+    let fixed = String::from_utf8(bytes).ok()?;
+    (!fixed.chars().any(char::is_control)).then_some(fixed)
+}
+
 pub(crate) fn parse_records(
     records: &[UserOptions],
     budget: &mut hsf_core::Budget,
@@ -229,10 +256,18 @@ pub(crate) fn parse_records(
                 + record.text.value.as_ref().map_or(0, |s| s.len() as u64 * 4),
         )?;
         let parsed = assignments(&record.text, budget)?;
-        let (parsing_status, reason, assignments) = match parsed {
+        let (parsing_status, reason, mut assignments) = match parsed {
             Ok(assignments) => (Status::Complete, None, assignments),
             Err(reason) => (Status::Unsupported, Some(reason.into()), Vec::new()),
         };
+        if record.text.encoding == "utf_16_le" {
+            for a in &mut assignments {
+                if let Some(fixed) = sign_extended_utf8(&a.value) {
+                    budget.charge_output(fixed.len() as u64)?;
+                    a.value = fixed;
+                }
+            }
+        }
         result.push(UserOptionRecord {
             node_id: record.node_id.clone(),
             source_record_id: record.source_record_id.clone(),
@@ -243,4 +278,42 @@ pub(crate) fn parse_records(
         });
     }
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::sign_extended_utf8;
+
+    fn widened(text: &str) -> String {
+        text.bytes()
+            .map(|b| {
+                if b < 0x80 {
+                    char::from(b)
+                } else {
+                    char::from_u32(0xff00 | u32::from(b)).unwrap()
+                }
+            })
+            .collect()
+    }
+
+    #[test]
+    fn sign_extended_utf8_recovers_only_the_widened_form() {
+        assert_eq!(
+            sign_extended_utf8(&widened("ピン_φ4")).as_deref(),
+            Some("ピン_φ4")
+        );
+        assert_eq!(
+            sign_extended_utf8(&widened("ベース板")).as_deref(),
+            Some("ベース板")
+        );
+        // Plain ASCII and genuine UTF-16 text are left alone.
+        assert_eq!(sign_extended_utf8("Pin Pair"), None);
+        assert_eq!(sign_extended_utf8("ピン_φ4"), None);
+        // Halfwidth katakana alone is not valid UTF-8 once narrowed.
+        assert_eq!(sign_extended_utf8("ﾃｽﾄ"), None);
+        // Fullwidth signs mixed with ASCII: narrowed bytes are not UTF-8 either.
+        assert_eq!(sign_extended_utf8("a￠b"), None);
+        // A widened control character is rejected.
+        assert_eq!(sign_extended_utf8(&widened("\u{85}")), None);
+    }
 }

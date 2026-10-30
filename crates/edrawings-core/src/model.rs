@@ -1,3 +1,4 @@
+use crate::PlacementPolicy;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -232,6 +233,7 @@ pub struct HsfRecord {
     pub named_style: Option<NamedStyleLayout>,
     pub clip_region: Option<ClipRegionLayout>,
     pub user_index: Option<UserIndexLayout>,
+    pub user_index_data: Option<UserIndexDataLayout>,
     pub visibility: Option<VisibilityLayout>,
     pub line_style: Option<LineStyleLayout>,
     pub glyph: Option<GlyphLayout>,
@@ -370,6 +372,7 @@ pub struct SceneSummary {
     pub primitive_instances: Vec<PrimitiveInstance>,
     pub user_options: Vec<UserOptions>,
     pub user_indices: Vec<UserIndices>,
+    pub user_index_data: Vec<UserIndexData>,
     pub hsf: HsfSummary,
     pub status: Status,
     pub units: Option<String>,
@@ -767,12 +770,18 @@ pub struct RenderingLayout {
     pub mask: u64,
     /// Heuristics/Text Font/Rendering Options values; Color channel mask.
     pub value: u64,
+    /// Rendering Options only: third mask/value word (TKO_Rendo_Extended2), zero when absent.
+    pub extended2_mask: u32,
+    pub extended2_value: u32,
     pub fields: Vec<OperandField>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NullShell {
     pub mesh_id: Option<String>,
+    /// Source Null Shell when this placeholder is an in-place Repeat Object instance.
+    pub instance_of: Option<String>,
+    pub instance_transform: Option<[f64; 16]>,
     pub id: String,
     pub node_id: String,
     pub source_record_id: String,
@@ -821,6 +830,31 @@ pub struct UserIndices {
     pub source_record_id: String,
     pub source: HsfSpan,
     pub layout: UserIndexLayout,
+    pub interpretation_status: Status,
+}
+
+/// One TKE_User_Index_Data entry: a signed application index and opaque bytes.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UserIndexDataEntry {
+    pub index: i32,
+    pub data: HsfSpan,
+}
+
+/// TKE_User_Index_Data (`m`): count, then interleaved (index, size, bytes) entries.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UserIndexDataLayout {
+    pub count: u32,
+    pub entries: Vec<UserIndexDataEntry>,
+}
+
+/// Segment metadata blobs keyed by application index. eDrawings 2026 keeps the
+/// display name under the index spelled `name`; bytes stay source-backed here.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct UserIndexData {
+    pub node_id: String,
+    pub source_record_id: String,
+    pub source: HsfSpan,
+    pub layout: UserIndexDataLayout,
     pub interpretation_status: Status,
 }
 
@@ -1253,3 +1287,129 @@ pub struct GlyphCommand {
 pub type GlyphBinding = LineStyleBinding;
 
 pub type GlyphLayout = LineStyleLayout;
+
+/// Where an instance colour came from: 0 none, 1 inherited HSF colour,
+/// 2 materials.xml entity, 3 `defaultcolor` User Option of a component.
+pub const COLOR_SOURCE_NONE: u8 = 0;
+pub const COLOR_SOURCE_HSF: u8 = 1;
+pub const COLOR_SOURCE_MATERIALS: u8 = 2;
+pub const COLOR_SOURCE_OPTION: u8 = 3;
+
+/// Document-level facts read from the container and the first eDrawings header.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DisplayDocument {
+    pub entry_id: String,
+    pub hsf_version: String,
+    /// Writer string from the first header, e.g. `SWeModels-23.3.0.0065-2015109`.
+    pub writer: Option<String>,
+    /// Four-digit year hint from the first header's leading date string.
+    pub writer_year_hint: Option<u16>,
+    pub configuration_candidate: Option<String>,
+    pub revision_history: Option<String>,
+    pub mount_path: Option<String>,
+    pub user_data_profile: Option<String>,
+    pub preview_entry_id: Option<String>,
+    pub preview_media_type: Option<String>,
+    pub materials_entry_id: Option<String>,
+    /// The `model_root` segment's stored name (file or top product name), if any.
+    pub model_name: Option<String>,
+    /// Millimetres per model unit from the `model_units` option written by HOOPS
+    /// Exchange based imports (1 = mm, 1000 = m, 25.4 = inch). None when the
+    /// writer stores no such option; SOLIDWORKS writers then store metres.
+    pub model_units: Option<f64>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DisplayConfiguration {
+    pub node_id: String,
+    pub segment_name: String,
+    pub name: Option<String>,
+    pub instances: u64,
+    /// The writer hid this configuration (face visibility off on its segment).
+    pub hidden: bool,
+    /// Display state eDrawings shows for it: `current`, else `default`.
+    pub display_state: Option<String>,
+    /// Saved display states (`dispN` segments), in segment order.
+    pub display_states: Vec<DisplayState>,
+}
+/// One saved display state of a configuration.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DisplayState {
+    pub segment_name: String,
+    /// The state's `name` option (for example `Display State-1`), when written.
+    pub name: Option<String>,
+    pub current: bool,
+    pub default: bool,
+    /// Number of `compN` visibility entries it carries.
+    pub components: u64,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DisplayConfigurations {
+    pub candidates: Vec<DisplayConfiguration>,
+    pub selected_node_id: Option<String>,
+    /// The configuration the writer left visible, when others are hidden.
+    pub active_node_id: Option<String>,
+    /// `none`, `explicit`, `active` or `first`.
+    pub selection: String,
+    /// `dispN` segment whose visibility entries were applied, if any.
+    pub shown_display_state: Option<String>,
+    /// `none`, `explicit`, `current` or `default`.
+    pub display_state_selection: String,
+}
+/// One body definition: a mesh with triangles, in its own local coordinates.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DisplayBody {
+    pub index: u32,
+    pub mesh_id: String,
+    pub null_shell_id: Option<String>,
+    pub source_node_id: String,
+    pub source_node_path: String,
+    pub vertex_count: u32,
+    pub triangle_count: u32,
+    pub edge_count: u32,
+    pub has_normals: bool,
+    pub bounds: Option<[[f32; 3]; 2]>,
+    pub instance_count: u32,
+    /// Name stored on the included body subtree (eDrawings 2026 `Body N`), if any.
+    pub name: Option<String>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DisplayStatistics {
+    pub records: u64,
+    pub processed_records: u64,
+    pub nodes: u64,
+    pub meshes: u64,
+    pub bodies: u64,
+    pub instances: u64,
+    pub instances_before_configuration_filter: u64,
+    /// Instances whose inherited HSF face visibility is off (the stored flag).
+    pub faces_off_instances: u64,
+    /// Placed instances eDrawings hides (default visibility or display state).
+    pub hidden_instances: u64,
+    /// Bodies whose placed instances are all hidden.
+    pub hidden_bodies: u64,
+    pub line_only_instances_skipped: u64,
+    pub triangles: u64,
+    pub unplaced_bodies: u64,
+    pub colors_from_hsf: u64,
+    pub colors_from_materials: u64,
+    pub colors_from_options: u64,
+    pub stopped_record_id: Option<String>,
+    pub unparsed_bytes: u64,
+}
+/// Summary of a display bundle. Buffers are separate; matrices use HSF's
+/// row-vector convention (`p_world = p_local * matrix`) in source units.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DisplaySummary {
+    pub document: DisplayDocument,
+    pub placement_policy: PlacementPolicy,
+    pub placement_status: Status,
+    pub status: Status,
+    pub configurations: DisplayConfigurations,
+    pub bodies: Vec<DisplayBody>,
+    pub instance_count: u64,
+    pub names: Vec<String>,
+    pub component_paths: Vec<String>,
+    pub statistics: DisplayStatistics,
+    pub diagnostics: Vec<Diagnostic>,
+    pub usage: HsfUsage,
+}
