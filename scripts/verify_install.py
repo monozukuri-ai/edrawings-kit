@@ -97,7 +97,7 @@ assert "stored_sheet_view_inventory" in info["capabilities"]
 assert "stored_component_part_transforms" in info["capabilities"]
 assert "stored_multiple_configurations" in info["capabilities"]
 assert "bounded_drawing_plane_units" in info["capabilities"]
-assert info["contract_version"] == 33
+assert isinstance(info["contract_version"], int) and info["contract_version"] > 0
 utf8 = "寸法確認 100 mm 🦀".encode()
 utf8_scene = ed.read(
     b";; HSF V19.10 \nx"
@@ -351,6 +351,10 @@ if len(sys.argv) > 1:
 if len(sys.argv) > 2:
     assert importlib.metadata.version("edrawings-kit") == sys.argv[2]
     assert info["version"] == sys.argv[3] == ed.__version__
+if len(sys.argv) > 4:
+    # From hsf-backend.lock.json: contract version, then the hsf-core version.
+    assert info["contract_version"] == int(sys.argv[4]), "Embedded HSF contract differs"
+    assert info["hsf_version"] == sys.argv[5], "Embedded hsf-core version differs"
 cli = subprocess.run(
     [sys.executable, "-I", "-m", "edrawings_kit", "info"],
     check=True,

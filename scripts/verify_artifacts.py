@@ -233,6 +233,8 @@ def install(wheel: Path, directory: Path) -> None:
             expected["backend"]["source_sha256"],
             expected["python_version"],
             expected["rust_version"],
+            str(expected["backend"]["contract_version"]),
+            expected["backend"]["version"],
         ],
         directory,
     )
