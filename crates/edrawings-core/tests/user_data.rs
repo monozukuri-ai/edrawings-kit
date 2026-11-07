@@ -50,6 +50,14 @@ fn root() -> Vec<u8> {
     }
     p
 }
+/// HSF 20.90 writes a zero byte after the bounding opcode.
+fn root_2090() -> Vec<u8> {
+    let mut p = b"I\x04\x80\0\0B\0\0".to_vec();
+    for f in [-1f32, -1., -1., 1., 1., 1.] {
+        p.extend(f.to_le_bytes());
+    }
+    p
+}
 fn doc(data: &[u8]) -> Document {
     read_bytes(data, &ReadOptions::default()).unwrap()
 }
@@ -129,6 +137,36 @@ fn profiles_preserve_fields_and_continue_only_from_computed_end() {
             );
         }
     }
+}
+#[test]
+fn twenty_ninety_headers_keep_the_nineteen_ten_fields() {
+    // SOLIDWORKS 2025 and 2026 write revisions 49 to 51 under HSF 20.90 with an
+    // empty include path; the fields, tail and accounting are those of 19.10.
+    for revision in [49, 50, 51] {
+        for include in [b"".as_slice(), b"/include/test"] {
+            let delta = 1 + u32::from(include.is_empty());
+            let header = block(revision, include, delta);
+            let mut body = header.clone();
+            body.extend(b"U\x03\0x=yz");
+            let p = parse(&doc(&file("20.90", &body, &root_2090())));
+            let s = p.summary();
+            assert!(s.unparsed.is_empty());
+            let r = &s.records[3];
+            assert_eq!(p.source_bytes(&r.source).unwrap(), header);
+            assert_eq!(
+                r.user_data.as_ref().unwrap().profile,
+                format!("edrawings-first-be-v2-hsf-20.90-revision-{revision}")
+            );
+            assert_eq!(s.records[4].kind, "user_options");
+        }
+    }
+    // Revisions outside 49..=51 stay unverified for 20.90.
+    let body = [block(48, b"", 2), b"U\x03\0x=yz".to_vec()].concat();
+    let p = parse(&doc(&file("20.90", &body, &root_2090())));
+    assert_eq!(
+        p.summary().diagnostics[0].code,
+        "edrawings.user_data_profile_mismatch"
+    );
 }
 #[test]
 fn all_truncations_and_false_boundaries_stop_without_resync() {

@@ -145,7 +145,8 @@ def test_user_data_and_unverified_versions_are_explicitly_unsupported():
     parsed = ed.read(HEADER + b"[\x03\0\0\0abc]\0").parse_hsf()
     assert parsed.summary.diagnostics[0].code == "hsf.unsupported_user_data"
     assert not parsed.summary.records
-    parsed = ed.read(b";; HSF V20.90 \n\0").parse_hsf()
+    # 20.90 is framed since hsf-core alpha.4; 21.15 (a Creo 11 writer) is not.
+    parsed = ed.read(b";; HSF V21.15 \n\0").parse_hsf()
     assert parsed.summary.diagnostics[0].code == "hsf.unsupported_version"
     assert parsed.summary.stages.hsf_header == "complete"
     assert parsed.summary.stages.hsf_syntax == "partial"

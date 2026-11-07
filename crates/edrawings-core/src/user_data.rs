@@ -284,7 +284,9 @@ impl UserDataProfile for FirstBe {
             // (SOLIDWORKS 2024, HOOPS Exchange Reader 32.5) were observed on
             // uploaded assemblies with the same fields, tail and accounting as
             // 48 and 51; before, their whole model was left unparsed.
-            (14, 50, 39) | (19, 10, 45..=51) => 48,
+            // HSF 20.90 (SOLIDWORKS 2025 and 2026) keeps the same header fields
+            // under revisions 49 to 51, with an empty include path.
+            (14, 50, 39) | (19, 10, 45..=51) | (20, 90, 49..=51) => 48,
             _ => return Err(mismatch("Unverified HSF/revision pair")),
         };
         c.flag("flag_1")?;
@@ -372,6 +374,7 @@ impl UserDataProfile for BeEnvelope {
             (8, 5) => &[22],
             (14, 50) => &[39],
             (19, 10) => &[45, 46, 47, 48, 49, 50, 51],
+            (20, 90) => &[49, 50, 51],
             _ => return Ok(None),
         };
         let Some(&revision) = candidates.iter().find(|revision| {

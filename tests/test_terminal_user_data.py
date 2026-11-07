@@ -24,6 +24,9 @@ PAIRS = [
     ("19.10", 49),
     ("19.10", 50),
     ("19.10", 51),
+    ("20.90", 49),
+    ("20.90", 50),
+    ("20.90", 51),
 ]
 
 
@@ -42,7 +45,9 @@ def first(revision=46):
 
 def packed(body, version="19.10", parent=b"\0", prefix=None):
     if prefix is None:
-        prefix = b"I\4\0\0\0B\0" + bytes(24)
+        # HSF 20.90 writes a zero byte after the bounding opcode.
+        bounding = b"B\0\0" if version == "20.90" else b"B\0"
+        prefix = b"I\4\0\0\0" + bounding + bytes(24)
     return (
         f";; HSF V{version} \n".encode() + prefix + b"Z" + zlib.compress(body) + parent
     )
