@@ -5,6 +5,10 @@ use std::io::Write;
 // Invented wire bytes with embedded ']' decoys. No dependency on the profile's
 // cursor, length calculator, or research Python implementation.
 fn block(revision: u32, include: &[u8], delta: u32) -> Vec<u8> {
+    block_with_blob_2(revision, include, delta, 24)
+}
+/// The Creo 11 publisher writes a 16-byte second blob where SOLIDWORKS writes 24.
+fn block_with_blob_2(revision: u32, include: &[u8], delta: u32, blob_2: usize) -> Vec<u8> {
     fn blob(out: &mut Vec<u8>, b: &[u8]) {
         out.push(b.len() as u8);
         out.extend(b);
@@ -25,7 +29,7 @@ fn block(revision: u32, include: &[u8], delta: u32) -> Vec<u8> {
     p.extend([0, 1]);
     blob(&mut p, format!("{revision};").as_bytes());
     p.push(0);
-    blob(&mut p, &[b']'; 24]);
+    blob(&mut p, &vec![b']'; blob_2]);
     p.extend(vec![0; if revision == 22 { 4 } else { 48 }]);
     let mut out = vec![b'['];
     out.extend((p.len() as u32 - delta).to_le_bytes());
@@ -70,6 +74,8 @@ fn profiles_preserve_fields_and_continue_only_from_computed_end() {
     for (version, revision) in [
         ("8.05", 22),
         ("14.50", 39),
+        ("17.85", 43),
+        ("18.00", 44),
         ("19.10", 45),
         ("19.10", 46),
         ("19.10", 47),
@@ -167,6 +173,40 @@ fn twenty_ninety_headers_keep_the_nineteen_ten_fields() {
         p.summary().diagnostics[0].code,
         "edrawings.user_data_profile_mismatch"
     );
+}
+#[test]
+fn creo_header_has_a_shorter_second_blob() {
+    // The Creo 11 publisher writes HSF 21.15 (framed as 20.90) with revision 51
+    // and a 16-byte second blob; the other fields are those of SOLIDWORKS.
+    for include in [b"".as_slice(), b"/include/test"] {
+        let delta = 1 + u32::from(include.is_empty());
+        let header = block_with_blob_2(51, include, delta, 16);
+        let body = [header.clone(), b"U\x03\0x=yz".to_vec()].concat();
+        let p = parse(&doc(&file("21.15", &body, &root_2090())));
+        let s = p.summary();
+        assert!(s.unparsed.is_empty());
+        let r = &s.records[3];
+        assert_eq!(p.source_bytes(&r.source).unwrap(), header);
+        assert_eq!(
+            r.user_data.as_ref().unwrap().profile,
+            "edrawings-first-be-v2-hsf-21.15-revision-51"
+        );
+        assert_eq!(s.records[4].kind, "user_options");
+    }
+    // The SOLIDWORKS width under 21.15, another revision, and the Creo width
+    // under 20.90 stay unverified.
+    for (version, header) in [
+        ("21.15", block(51, b"", 2)),
+        ("21.15", block_with_blob_2(50, b"", 2, 16)),
+        ("20.90", block_with_blob_2(51, b"", 2, 16)),
+    ] {
+        let body = [header, b"U\x03\0x=yz".to_vec()].concat();
+        let p = parse(&doc(&file(version, &body, &root_2090())));
+        assert_eq!(
+            p.summary().diagnostics[0].code,
+            "edrawings.user_data_profile_mismatch"
+        );
+    }
 }
 #[test]
 fn all_truncations_and_false_boundaries_stop_without_resync() {
@@ -283,6 +323,42 @@ fn adjacent_handedness_authorizes_inventory_but_not_placements() {
             assert_eq!(
                 s.source_bytes(&summary.opaque_user_data[0].source).unwrap(),
                 header
+            );
+        } else {
+            assert_eq!(summary.processed_records, 3);
+            assert!(summary.primitives.is_empty());
+        }
+    }
+}
+#[test]
+fn creo_marker_size_after_the_header_authorizes_inventory() {
+    // The Creo 11 publisher follows the header with a marker size (`+`) where
+    // SOLIDWORKS writes handedness or a view; other writers' `+` does not count.
+    let mut geometry = b"l\0".to_vec();
+    for f in [1f32, 2., 3., 4., 5., 6.] {
+        geometry.extend(f.to_le_bytes());
+    }
+    let size = [b"+".as_slice(), &1f32.to_le_bytes()].concat();
+    for (version, header, allowed) in [
+        ("21.15", block_with_blob_2(51, b"", 2, 16), true),
+        ("20.90", block(51, b"", 2), false),
+    ] {
+        let bytes = file(
+            version,
+            &[header.as_slice(), &size, &geometry, b"z"].concat(),
+            &root_2090(),
+        );
+        let s = doc(&bytes)
+            .read_scene_with_user_data(None, HsfMode::Partial, UserDataPolicy::EdrawingsFirstBeV2)
+            .unwrap();
+        let summary = s.summary();
+        assert_eq!(summary.placement_status, Status::Unsupported);
+        assert_eq!(summary.opaque_user_data.len(), usize::from(allowed));
+        if allowed {
+            assert_eq!(summary.processed_records, summary.hsf.records.len() as u64);
+            assert_eq!(
+                s.primitive_points(&summary.primitives[0].id).unwrap(),
+                &[[1., 2., 3.], [4., 5., 6.]]
             );
         } else {
             assert_eq!(summary.processed_records, 3);

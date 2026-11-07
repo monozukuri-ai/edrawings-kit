@@ -84,7 +84,7 @@ def test_user_data_allows_only_definition_inventory_after_verified_anchor(anchor
 
 
 @pytest.mark.parametrize(
-    "suffix", [b"!", b"h\x02", b"}\x20", b"U\x01\0x" + view(), b"l" + POINTS]
+    "suffix", [b"W", b"h\x02", b"}\x20", b"U\x01\0x" + view(), b"l" + POINTS]
 )
 def test_no_anchor_never_authorizes_user_data_continuation(suffix):
     doc = ed.read(compressed(sample() + suffix + b"z"))

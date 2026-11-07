@@ -282,14 +282,22 @@ def test_cli_explicit_output_and_no_overwrite(zip_factory, tmp_path):
 def test_build_information_and_backend_fingerprint():
     info = ed.build_info()
     assert Version(info.version) == Version(importlib.metadata.version("edrawings-kit"))
-    assert info.hsf_version == "0.1.0-alpha.4"
+    assert info.hsf_version == "0.1.0-alpha.5"
     assert "hsf_header" in info.capabilities
     assert "scene" in info.capabilities
     lock = Path(__file__).resolve().parents[1] / "hsf-backend.lock.json"
     backend = json.loads(lock.read_text())
     assert info.hsf_source_sha256 == backend["source_sha256"]
-    assert info.contract_version == backend["contract_version"] == 36
-    assert info.hsf_syntax_versions == ("8.05", "14.50", "19.10", "20.90")
+    assert info.contract_version == backend["contract_version"] == 37
+    assert info.hsf_syntax_versions == (
+        "8.05",
+        "14.50",
+        "17.85",
+        "18.00",
+        "19.10",
+        "20.90",
+        "21.15",
+    )
     assert ord("Z") in info.hsf_syntax_opcodes
     assert ord("S") in info.hsf_syntax_opcodes
     assert "uncompressed_shell" in info.hsf_scene_features

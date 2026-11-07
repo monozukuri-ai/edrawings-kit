@@ -282,12 +282,23 @@ pub struct ShellLayout {
     pub refinement_index: Option<u32>,
     pub lod: u8,
     pub vertex_count: u32,
+    /// f32 XYZ triples, or the packed codes when `point_quantization` is set.
     pub vertices: HsfSpan,
+    pub point_quantization: Option<PointQuantization>,
     pub face_value_count: u32,
     pub face_bits: u8,
     pub faces: HsfSpan,
     pub normals: Option<HsfSpan>,
     pub attributes: Vec<ShellAttributeLayout>,
+}
+/// Quantized Shell points: `bits_per_sample` codes per coordinate spanning the
+/// box in `bounds` (minimum then maximum XYZ, six f32). Scene meshes hold the
+/// decoded points.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PointQuantization {
+    pub scheme: u8,
+    pub bits_per_sample: u8,
+    pub bounds: HsfSpan,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MeshInfo {

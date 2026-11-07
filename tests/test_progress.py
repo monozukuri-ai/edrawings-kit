@@ -134,6 +134,37 @@ def test_shell_attributes_are_source_backed_and_refinements_stay_unplaced():
     )
 
 
+def test_quantized_shell_points_keep_their_codes_and_decode_in_the_scene():
+    # Three 16-bit points across the box (0,0,0)-(2,4,8), packed MSB-first in
+    # little-endian words, as the Creo 11 publisher writes them; one triangle.
+    codes = [0, 0, 0, 0xFFFF, 0, 0, 0, 0xFFFF, 0xFFFF, 0]
+    pairs = zip(codes[::2], codes[1::2], strict=True)
+    packed = struct.pack("<5I", *(a << 16 | b for a, b in pairs))
+    bounds = struct.pack("<6f", 0, 0, 0, 2, 4, 8)
+    shell = (
+        b"S\x13\0\x01"
+        + struct.pack("<I", 3)
+        + bounds
+        + b"\x10"
+        + struct.pack("<I", len(packed))
+        + packed
+        + b"\x01"
+        + struct.pack("<I", 5)
+        + bytes([8, 3, 0, 1, 2])
+    )
+    doc = ed.read(raw(shell + b"\0"))
+    hsf = doc.parse_hsf(mode="strict")
+    s = hsf.summary.records[0].shell
+    q = s.point_quantization
+    assert isinstance(q, ed.PointQuantization)
+    assert (q.scheme, q.bits_per_sample) == (1, 16)
+    assert hsf.source_bytes(q.bounds) == bounds
+    assert hsf.source_bytes(s.vertices) == packed
+    scene = doc.read_scene()
+    buffers = scene.mesh_buffers(scene.summary.meshes[0].id)
+    assert unpack(buffers.vertices) == ((0, 0, 0), (2, 0, 0), (0, 4, 8))
+
+
 @pytest.mark.parametrize("weight", [-1.0, 0.0, -2.0, 3.0])
 def test_hidden_line_shadow_field_order_units_and_texture_matrix(weight):
     matrix = b"$" + struct.pack("<12f", 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 3, 4)

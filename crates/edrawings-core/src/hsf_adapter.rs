@@ -342,6 +342,11 @@ pub(crate) fn project(
                 lod: s.lod,
                 vertex_count: s.vertex_count,
                 vertices: source(id, s.vertices),
+                point_quantization: s.point_quantization.map(|q| PointQuantization {
+                    scheme: q.scheme,
+                    bits_per_sample: q.bits_per_sample,
+                    bounds: source(id, q.bounds),
+                }),
                 face_value_count: s.face_value_count,
                 face_bits: s.face_bits,
                 faces: source(id, s.faces),

@@ -267,6 +267,13 @@ def _decode(cls: type[T], text: str) -> T:
 
 
 @dataclass(frozen=True)
+class PointQuantization(Model):
+    scheme: int
+    bits_per_sample: int
+    bounds: HsfSpan
+
+
+@dataclass(frozen=True)
 class ShellLayout(Model):
     null: bool
     flags: int
@@ -275,6 +282,7 @@ class ShellLayout(Model):
     lod: int
     vertex_count: int
     vertices: HsfSpan
+    point_quantization: PointQuantization | None
     face_value_count: int
     face_bits: int
     faces: HsfSpan

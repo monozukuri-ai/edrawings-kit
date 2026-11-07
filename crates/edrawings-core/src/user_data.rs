@@ -28,7 +28,8 @@ impl UserDataPolicy {
         }
     }
     /// Inventory authorization is narrower than syntax opt-in: the empirical
-    /// root header must be followed immediately by a fully framed h or }.
+    /// root header must be followed immediately by a fully framed h or } (or
+    /// the marker size `+` that the Creo 11 publisher writes there at 21.15).
     /// This does not authorize placements or interpretation of private fields.
     pub(crate) fn inventory_record(self, parsed: &hsf_core::HsfDocument) -> Option<String> {
         if matches!(self, Self::Disabled) {
@@ -36,6 +37,7 @@ impl UserDataPolicy {
         }
         let r = parsed.records.get(3)?;
         let next = parsed.records.get(4)?;
+        let creo = (parsed.header.version.major, parsed.header.version.minor) == (21, 15);
         if r.opcode != b'['
             || r.user_data.is_none()
             || r.scope.is_some()
@@ -44,7 +46,7 @@ impl UserDataPolicy {
             || parsed.records[..3].iter().map(|r| r.opcode).ne(*b"IBZ")
             || next.source.domain_id != r.source.domain_id
             || r.source.offset.checked_add(r.source.length) != Some(next.source.offset)
-            || !matches!(next.opcode, b'h' | b'}')
+            || !(matches!(next.opcode, b'h' | b'}') || (creo && next.opcode == b'+'))
         {
             return None;
         }
@@ -285,8 +287,15 @@ impl UserDataProfile for FirstBe {
             // uploaded assemblies with the same fields, tail and accounting as
             // 48 and 51; before, their whole model was left unparsed.
             // HSF 20.90 (SOLIDWORKS 2025 and 2026) keeps the same header fields
-            // under revisions 49 to 51, with an empty include path.
-            (14, 50, 39) | (19, 10, 45..=51) | (20, 90, 49..=51) => 48,
+            // under revisions 49 to 51, with an empty include path, as do 17.85
+            // (SOLIDWORKS 2011, revision 43), 18.00 (2012, 44) and the Creo 11
+            // publisher's 21.15 (51).
+            (14, 50, 39)
+            | (17, 85, 43)
+            | (18, 0, 44)
+            | (19, 10, 45..=51)
+            | (20, 90, 49..=51)
+            | (21, 15, 51) => 48,
             _ => return Err(mismatch("Unverified HSF/revision pair")),
         };
         c.flag("flag_1")?;
@@ -301,7 +310,13 @@ impl UserDataProfile for FirstBe {
             return Err(mismatch("Revision integer and string disagree"));
         }
         c.take("opaque_flag", 1)?;
-        c.blob("opaque_blob_2", Some(24))?;
+        // The Creo 11 publisher (21.15) writes 16 bytes here; SOLIDWORKS 24.
+        let blob_2 = if (context.header.version.major, context.header.version.minor) == (21, 15) {
+            16
+        } else {
+            24
+        };
+        c.blob("opaque_blob_2", Some(blob_2))?;
         let tail_bytes = c.take("revision_tail", tail)?;
         if tail == 48 {
             finite(&tail_bytes[12..44])?;
@@ -373,8 +388,11 @@ impl UserDataProfile for BeEnvelope {
         {
             (8, 5) => &[22],
             (14, 50) => &[39],
+            (17, 85) => &[43],
+            (18, 0) => &[44],
             (19, 10) => &[45, 46, 47, 48, 49, 50, 51],
             (20, 90) => &[49, 50, 51],
+            (21, 15) => &[51],
             _ => return Ok(None),
         };
         let Some(&revision) = candidates.iter().find(|revision| {

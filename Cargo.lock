@@ -63,7 +63,7 @@ dependencies = [
 
 [[package]]
 name = "edrawings-core"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "crc32fast",
  "flate2",
@@ -77,7 +77,7 @@ dependencies = [
 
 [[package]]
 name = "edrawings-python"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "edrawings-core",
  "pyo3",
@@ -113,9 +113,9 @@ checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
 name = "hsf-core"
-version = "0.1.0-alpha.4"
+version = "0.1.0-alpha.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d70ac417b64b45ffd6b53ca274ae5ef4911cda36a7df04748cb7390f5efadef"
+checksum = "caa55a75940172db4882cc439e1027104dd6a1a9e67744938bf76be7cf744022"
 dependencies = [
  "flate2",
  "serde",

@@ -23,14 +23,14 @@ The parser does not require eDrawings or the HOOPS SDK at runtime.
 | --- | --- |
 | Containers | Raw HSF, standard ZIP, and supported ZIP containers with a 92-byte prefix |
 | ZIP | Store/Deflate, entry listings, extraction with resource limits, CRC/SHA-256 |
-| HSF | A limited set of 8.05 / 14.50 / 19.10 / 20.90 opcodes, internal zlib compression, source references, and unparsed ranges |
+| HSF | A limited set of 8.05 / 14.50 / 17.85 / 18.00 / 19.10 / 20.90 / 21.15 opcodes, internal zlib compression, source references, and unparsed ranges |
 | Geometry | Stored values for supported Shell/Mesh, line, polyline, polygon, circle, and arc records |
 | Text | Known encoding conventions, with raw bytes and source references retained |
 | Attributes | Stored information for supported colors, visibility, matrices, line styles, fonts, glyphs, and rendering settings |
 | Documents | Supported sheets/views, component trees and local transforms, multiple configurations, and limited drawing units |
 | Product-specific User Data and images | Explicitly selected experimental profiles only |
 | Display bundles | Estimated placements from the stored segment tree, matrices, includes and repeat instances; one saved configuration; colours from HSF, `materials.xml` or `defaultcolor`; names from options, text and User Index Data; `model_units` when written; the active configuration and eDrawings' display-state visibility (hidden components left out unless requested); preview extraction |
-| Writers | SOLIDWORKS eDrawings writers (HSF 19.10, 2014–2026; HSF 20.90, SOLIDWORKS 2025–2026, with internal revisions 49–51) and eDrawings 2026 HOOPS Exchange imports (3DF 20.10 records behind a 19.10 header: priority, user index data, three-word rendering options, backquoted names); older 8.05 / 14.50 profiles |
+| Writers | SOLIDWORKS eDrawings writers (HSF 19.10, 2014–2026; HSF 20.90, SOLIDWORKS 2025–2026, with internal revisions 49–51; HSF 17.85 and 18.00, SOLIDWORKS 2011 and 2012, revisions 43 and 44), the Creo 11 eDrawings publisher (HSF 21.15, revision 51; Shells with compressed connectivity are not read) and eDrawings 2026 HOOPS Exchange imports (3DF 20.10 records behind a 19.10 header: priority, user index data, three-word rendering options, backquoted names); older 8.05 / 14.50 profiles |
 
 ZIP64, split or encrypted ZIP archives, unknown compression methods, and HSF data
 or writers outside the supported profiles are not supported. Semantic processing

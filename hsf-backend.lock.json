@@ -1,9 +1,9 @@
 {
   "schema_version": 2,
-  "version": "0.1.0-alpha.4",
-  "contract_version": 36,
-  "source_sha256": "ab78d78aea9c4d5518065e7754a8eb485ad7a43307d645140ca7d2224407a246",
+  "version": "0.1.0-alpha.5",
+  "contract_version": 37,
+  "source_sha256": "d6725a64949f02d043ff093a20d337e54717d148b2b2e8dba54739f64271138b",
   "registry_source": "registry+https://github.com/rust-lang/crates.io-index",
-  "crate_checksum": "8d70ac417b64b45ffd6b53ca274ae5ef4911cda36a7df04748cb7390f5efadef",
+  "crate_checksum": "caa55a75940172db4882cc439e1027104dd6a1a9e67744938bf76be7cf744022",
   "repository": "https://github.com/monozukuri-ai/hsf-core"
 }
