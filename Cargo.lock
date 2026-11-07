@@ -114,6 +114,8 @@ checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 [[package]]
 name = "hsf-core"
 version = "0.1.0-alpha.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d70ac417b64b45ffd6b53ca274ae5ef4911cda36a7df04748cb7390f5efadef"
 dependencies = [
  "flate2",
  "serde",

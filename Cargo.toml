@@ -23,7 +23,3 @@ pyo3 = { version = "=0.29.2", features = ["abi3-py310"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
-
-# DEV ONLY (HSF 20.90 work, 2026-11-07): remove before release; hsf-core alpha.4 goes to crates.io first
-[patch.crates-io]
-hsf-core = { path = "../hsf-core" }
