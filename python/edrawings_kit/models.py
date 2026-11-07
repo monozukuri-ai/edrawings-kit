@@ -274,6 +274,16 @@ class PointQuantization(Model):
 
 
 @dataclass(frozen=True)
+class ConnectivityLayout(Model):
+    scheme: int
+    stream: HsfSpan
+    stream_scheme: int
+    points_scheme: int
+    normals_scheme: int
+    opcode_count: int
+
+
+@dataclass(frozen=True)
 class ShellLayout(Model):
     null: bool
     flags: int
@@ -288,6 +298,7 @@ class ShellLayout(Model):
     faces: HsfSpan
     normals: HsfSpan | None
     attributes: tuple[ShellAttributeLayout, ...]
+    connectivity: ConnectivityLayout | None
 
 
 @dataclass(frozen=True)

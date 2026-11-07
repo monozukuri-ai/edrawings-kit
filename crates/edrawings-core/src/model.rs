@@ -290,6 +290,21 @@ pub struct ShellLayout {
     pub faces: HsfSpan,
     pub normals: Option<HsfSpan>,
     pub attributes: Vec<ShellAttributeLayout>,
+    /// Set for connectivity-compressed Shells, whose stream holds the points and
+    /// triangles; `vertices` and `faces` are then empty.
+    pub connectivity: Option<ConnectivityLayout>,
+}
+/// A connectivity-compressed Shell's stream (compression scheme 5). Scene meshes
+/// hold the decoded points and triangles.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConnectivityLayout {
+    pub scheme: u8,
+    pub stream: HsfSpan,
+    pub stream_scheme: u8,
+    pub points_scheme: u8,
+    pub normals_scheme: u8,
+    /// One triangle per opcode, before hole-plug triangles are removed.
+    pub opcode_count: u32,
 }
 /// Quantized Shell points: `bits_per_sample` codes per coordinate spanning the
 /// box in `bounds` (minimum then maximum XYZ, six f32). Scene meshes hold the

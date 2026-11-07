@@ -23,13 +23,13 @@ Windows/macOSの3.11–3.13、free-threaded Python、PyPy、その他architectur
 | コンテナ | raw HSF、通常ZIP、対応する92-byte前置き付きZIP |
 | ZIP | Store/Deflate、entry一覧、上限付き抽出、CRC/SHA-256 |
 | HSF | 8.05 / 14.50 / 17.85 / 18.00 / 19.10 / 20.90 / 21.15の限定命令群、内部zlib、出典と未解析範囲 |
-| 形状 | 対応するShell/Mesh、線・ポリライン・ポリゴン・円／円弧の保存値 |
+| 形状 | 対応するShell/Mesh、線・ポリライン・ポリゴン・円／円弧の保存値。量子化・接続情報圧縮のShellは点と三角形に復元 |
 | 文字 | 既知encodingの復号、raw bytesと出典の保持 |
 | 属性 | 対応する色・可視性・行列・線種・font・glyph・描画設定の保存情報 |
 | 文書 | 対応するsheet/view、部品ツリー・局所変換、複数構成、限定図面単位 |
 | 製品固有User Data・画像 | 明示指定する実験プロファイルのみ |
 | 表示用の束 | 保存されたsegment木・行列・include・repeat instanceからの推定配置、1構成、HSF／`materials.xml`／`defaultcolor`の色、オプション・text・User Index Dataからの名前、記録があれば`model_units`、active構成とeDrawingsの表示状態による可視性（隠れた部品は既定で除外）、プレビュー画像の抽出 |
-| 書き手 | SOLIDWORKSのeDrawings書き手（HSF 19.10、2014〜2026。HSF 20.90、SOLIDWORKS 2025〜2026、内部revision 49〜51。HSF 17.85・18.00、SOLIDWORKS 2011・2012、revision 43・44）、Creo 11のeDrawings書き出し（HSF 21.15、revision 51。接続情報を圧縮したShellは読まない）と、eDrawings 2026のHOOPS Exchange取り込み（19.10ヘッダの下に3DF 20.10のレコード: priority、user index data、3語のrendering options、バッククォート付きの名前）、古い8.05／14.50プロファイル |
+| 書き手 | SOLIDWORKSのeDrawings書き手（HSF 19.10、2014〜2026。HSF 20.90、SOLIDWORKS 2025〜2026、内部revision 49〜51。HSF 17.85・18.00、SOLIDWORKS 2011・2012、revision 43・44）、Creo 11のeDrawings書き出し（HSF 21.15、revision 51。接続情報を圧縮したShellも読む）と、eDrawings 2026のHOOPS Exchange取り込み（19.10ヘッダの下に3DF 20.10のレコード: priority、user index data、3語のrendering options、バッククォート付きの名前）、古い8.05／14.50プロファイル |
 
 ZIP64、分割・暗号化ZIP、未知圧縮、対応プロファイル外のHSFやwriterは対象外です。
 メッシュ圧縮、LOD、画像／Texture、Style参照、クリップ等にも未対応の意味処理が残ります。

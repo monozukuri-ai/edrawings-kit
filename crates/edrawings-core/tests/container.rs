@@ -91,6 +91,46 @@ fn localize(value: &mut serde_json::Value, prefix: &str) {
     }
 }
 
+/// hsf-core serializes a record's framing as one tagged `layout`; the wrapper
+/// keeps an optional field per layout, as before.
+fn expand_layouts(records: &mut serde_json::Value) {
+    const NAMES: [&str; 23] = [
+        "shell",
+        "poly_polyline",
+        "primitive",
+        "user_data",
+        "view",
+        "visibility",
+        "line_style",
+        "glyph",
+        "font",
+        "marker_size",
+        "line_weight",
+        "edge_weight",
+        "named_style",
+        "clip_region",
+        "user_index",
+        "user_index_data",
+        "rendering",
+        "camera",
+        "texture",
+        "image",
+        "indexed_color",
+        "color_map",
+        "mesh",
+    ];
+    for record in records.as_array_mut().unwrap() {
+        let record = record.as_object_mut().unwrap();
+        let layout = record.remove("layout").unwrap();
+        for name in NAMES {
+            record.insert(name.into(), serde_json::Value::Null);
+        }
+        if let serde_json::Value::Object(layout) = layout {
+            record.extend(layout);
+        }
+    }
+}
+
 fn compare_hsf_direct(doc: &Document, id: &str) {
     let payload = doc.extract(id).unwrap().data;
     let direct = hsf_core::parse(
@@ -103,7 +143,9 @@ fn compare_hsf_direct(doc: &Document, id: &str) {
     let result = parsed.summary();
     let mut records = serde_json::to_value(&result.records).unwrap();
     localize(&mut records, &format!("{id}/"));
-    assert_eq!(records, serde_json::to_value(&direct.data.records).unwrap());
+    let mut expected = serde_json::to_value(&direct.data.records).unwrap();
+    expand_layouts(&mut expected);
+    assert_eq!(records, expected);
     let mut unparsed = serde_json::to_value(&result.unparsed).unwrap();
     localize(&mut unparsed, &format!("{id}/"));
     assert_eq!(unparsed, serde_json::to_value(&direct.unparsed).unwrap());
@@ -466,6 +508,19 @@ fn m3_direct_backend_and_wrapped_scenes_agree() {
             "processed_records",
             "units",
         ] {
+            // hsf-core reads face colour and visibility from the display
+            // attributes; the wrapper keeps them as instance fields.
+            if key == "instances" {
+                let expected = expected[key].as_array().unwrap();
+                for (a, e) in actual[key].as_array_mut().unwrap().iter_mut().zip(expected) {
+                    let a = a.as_object_mut().unwrap();
+                    assert_eq!(a.remove("face_color").unwrap(), e["display"]["colors"][0]);
+                    assert_eq!(
+                        a.remove("face_visible").unwrap(),
+                        e["display"]["visibility"][0]
+                    );
+                }
+            }
             assert_eq!(actual[key], expected[key], "{key}");
         }
         let buffers = scene.mesh_buffers(&summary.meshes[0].id).unwrap();

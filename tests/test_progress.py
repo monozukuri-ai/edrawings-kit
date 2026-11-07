@@ -165,6 +165,66 @@ def test_quantized_shell_points_keep_their_codes_and_decode_in_the_scene():
     assert unpack(buffers.vertices) == ((0, 0, 0), (2, 0, 0), (0, 4, 8))
 
 
+class Bits:
+    """Escape-coded values in big-endian bit fields of little-endian words."""
+
+    def __init__(self):
+        self.words, self.bit = [], 0
+
+    def raw(self, value, width):
+        for i in reversed(range(width)):
+            if self.bit == 0:
+                self.words.append(0)
+            self.words[-1] |= ((value >> i) & 1) << (31 - self.bit)
+            self.bit = (self.bit + 1) % 32
+
+    def put(self, value, widths):
+        for w in widths:
+            code = value + (1 << (w - 1)) - 1
+            if w == 32:
+                return self.raw(code & 0xFFFFFFFF, 32)
+            if 0 <= code < (1 << w) - 1:
+                return self.raw(code, w)
+            self.raw((1 << w) - 1, w)
+        return None
+
+
+def test_connectivity_compressed_shells_decode_into_meshes():
+    # A quad as the Creo 11 publisher would compress it: opcodes R then E over a
+    # loop of four, points in a 0..65535 box at 16 bits (codes are coordinates),
+    # the fourth point a residual from the parallelogram prediction (0, 10, 0).
+    residual, absolute = [2, 6, 10, 14, 18, 22, 26, 31, 32], [16, 31, 32]
+    bits = Bits()
+    bits.put(0, residual)
+    bits.put(3, absolute)
+    bits.put(1, absolute)
+    for p in ((0, 0, 0), (10, 0, 0), (10, 10, 0)):
+        for v in p:
+            bits.put(v, absolute)
+    for v in (-1, -2, 0):
+        bits.put(v, residual)
+    points = struct.pack(f"<{len(bits.words)}I", *bits.words)
+    table = (
+        struct.pack("<i", 0x60)
+        + struct.pack("<6f", 0, 0, 0, 65535, 65535, 65535)
+        + struct.pack("<3i", 16, 16, 16)
+    )
+    ops = bytes([3, 2])
+    header = bytes([2, 0, 3, 0]) + struct.pack(
+        "<5i", len(ops), len(table), len(points), 4, 0
+    )
+    body = header + ops + b"\0\0" + table + points
+    shell = b"S\x51\x00\x05" + struct.pack("<i", len(body)) + body
+    doc = ed.read(raw(shell + b"\0"))
+    layout = doc.parse_hsf(mode="strict").summary.records[0].shell.connectivity
+    assert isinstance(layout, ed.ConnectivityLayout)
+    assert (layout.scheme, layout.stream_scheme, layout.opcode_count) == (5, 2, 2)
+    scene = doc.read_scene()
+    buffers = scene.mesh_buffers(scene.summary.meshes[0].id)
+    assert unpack(buffers.vertices) == ((0, 0, 0), (10, 0, 0), (10, 10, 0), (1, 12, 0))
+    assert unpack(buffers.triangles) == ((0, 1, 2), (0, 2, 3))
+
+
 @pytest.mark.parametrize("weight", [-1.0, 0.0, -2.0, 3.0])
 def test_hidden_line_shadow_field_order_units_and_texture_matrix(weight):
     matrix = b"$" + struct.pack("<12f", 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 3, 4)

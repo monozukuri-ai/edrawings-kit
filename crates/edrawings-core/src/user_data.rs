@@ -39,9 +39,9 @@ impl UserDataPolicy {
         let next = parsed.records.get(4)?;
         let creo = (parsed.header.version.major, parsed.header.version.minor) == (21, 15);
         if r.opcode != b'['
-            || r.user_data.is_none()
+            || r.user_data().is_none()
             || r.scope.is_some()
-            || r.source.domain_id != "hsf:1"
+            || &*r.source.domain_id != "hsf:1"
             || r.source.offset != 0
             || parsed.records[..3].iter().map(|r| r.opcode).ne(*b"IBZ")
             || next.source.domain_id != r.source.domain_id
@@ -50,7 +50,7 @@ impl UserDataPolicy {
         {
             return None;
         }
-        Some(r.id.clone())
+        Some(r.id.to_string())
     }
 
     /// The producer's mount path for this file's root, when the accepted first
@@ -82,19 +82,19 @@ impl UserDataPolicy {
         let [r, stop, end] = tail else {
             return None;
         };
-        let layout = r.user_data.as_ref()?;
+        let layout = r.user_data()?;
         if r.opcode != b'['
             || r.scope.is_some()
             || !layout.profile.starts_with("edrawings-terminal-be-v1-")
             || stop.opcode != b'z'
             || end.opcode != 0
-            || r.source.domain_id != "hsf:1"
-            || end.source.domain_id != "hsf:0"
+            || &*r.source.domain_id != "hsf:1"
+            || &*end.source.domain_id != "hsf:0"
             || parsed.domains.iter().any(|d| d.parsed_bytes != d.byte_len)
         {
             return None;
         }
-        Some(r.id.clone())
+        Some(r.id.to_string())
     }
 }
 /// The revision string is a `;`-terminated history whose last entry is the
@@ -132,7 +132,7 @@ pub(crate) fn first_header_field<'a>(
     if record.opcode != b'[' {
         return None;
     }
-    let layout = record.user_data.as_ref()?;
+    let layout = record.user_data()?;
     let field = layout.fields.iter().find(|f| f.label == label)?;
     parsed.source_bytes(&field.source)
 }
@@ -248,7 +248,7 @@ impl UserDataProfile for FirstBe {
             || root.iter().map(|r| r.opcode).ne(*b"IBZ")
             || root
                 .iter()
-                .any(|r| r.source.domain_id != "hsf:0" || r.scope.is_some())
+                .any(|r| &*r.source.domain_id != "hsf:0" || r.scope.is_some())
             || root[0].source.offset != context.header.byte_len
             || bytes.get(5) != Some(&0xBE)
         {
@@ -361,7 +361,7 @@ impl UserDataProfile for BeEnvelope {
         let Some(first) = root.get(3) else {
             return Ok(None);
         };
-        let Some(first_layout) = first.user_data.as_ref() else {
+        let Some(first_layout) = first.user_data() else {
             return Ok(None);
         };
         let Some(last) = root.last() else {
@@ -372,13 +372,13 @@ impl UserDataProfile for BeEnvelope {
             || context.segment_depth != 0
             || context.parent_suffix != Some(b"\0".as_slice())
             || context.offset.checked_add(bytes.len() as u64) != Some(context.domain_byte_len)
-            || first.source.domain_id != context.domain_id
+            || *first.source.domain_id != *context.domain_id
             || first.source.offset != 0
             || first.opcode != b'['
             || first.scope.is_some()
             || last.opcode != 1
             || last.scope.is_some()
-            || last.source.domain_id != context.domain_id
+            || *last.source.domain_id != *context.domain_id
             || last.source.offset.checked_add(last.source.length) != Some(context.offset)
             || root.iter().filter(|r| r.opcode == b'[').count() != 1
         {

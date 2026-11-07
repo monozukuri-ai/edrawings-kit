@@ -170,7 +170,7 @@ pub(crate) fn project(
         .records
         .into_iter()
         .map(|r| HsfRecord {
-            image: r.image.map(|a| ImageLayout {
+            image: r.image().cloned().map(|a| ImageLayout {
                 profile: a.profile,
                 position: source(id, a.position),
                 format_options: a.format_options,
@@ -182,20 +182,20 @@ pub(crate) fn project(
                 alpha_compression: a.alpha_compression,
                 alpha: source(id, a.alpha),
             }),
-            camera: r.camera.map(|a| CameraLayout {
+            camera: r.camera().cloned().map(|a| CameraLayout {
                 projection: a.projection,
                 settings: source(id, a.settings),
             }),
-            indexed_color: r.indexed_color.map(|a| IndexedColorLayout {
+            indexed_color: r.indexed_color().cloned().map(|a| IndexedColorLayout {
                 geometry_mask: a.geometry_mask,
                 index: a.index,
             }),
-            color_map: r.color_map.map(|a| ColorMapLayout {
+            color_map: r.color_map().cloned().map(|a| ColorMapLayout {
                 format: a.format,
                 entry_count: a.entry_count,
                 colors: source(id, a.colors),
             }),
-            texture: r.texture.map(|a| TextureLayout {
+            texture: r.texture().cloned().map(|a| TextureLayout {
                 name: source(id, a.name),
                 image: source(id, a.image),
                 flags: a.flags,
@@ -203,13 +203,13 @@ pub(crate) fn project(
                     .fields
                     .into_iter()
                     .map(|f| OperandField {
-                        name: f.name,
-                        encoding: f.encoding,
+                        name: f.name.into_owned(),
+                        encoding: f.encoding.into_owned(),
                         source: source(id, f.source),
                     })
                     .collect(),
             }),
-            mesh: r.mesh.map(|a| GridMeshLayout {
+            mesh: r.mesh().cloned().map(|a| GridMeshLayout {
                 flags: a.flags,
                 rows: a.rows,
                 columns: a.columns,
@@ -228,7 +228,7 @@ pub(crate) fn project(
                     })
                     .collect(),
             }),
-            rendering: r.rendering.map(|a| RenderingLayout {
+            rendering: r.rendering().cloned().map(|a| RenderingLayout {
                 mask: a.mask,
                 value: a.value,
                 extended2_mask: a.extended2_mask,
@@ -237,68 +237,60 @@ pub(crate) fn project(
                     .fields
                     .into_iter()
                     .map(|f| OperandField {
-                        name: f.name,
-                        encoding: f.encoding,
+                        name: f.name.into_owned(),
+                        encoding: f.encoding.into_owned(),
                         source: source(id, f.source),
                     })
                     .collect(),
             }),
-            edge_weight: r.edge_weight.map(|a| MarkerSizeLayout {
+            edge_weight: r.edge_weight().cloned().map(|a| MarkerSizeLayout {
                 value_bits: a.value_bits,
                 units: a.units,
             }),
-            named_style: r.named_style.map(|a| NamedStyleLayout {
+            named_style: r.named_style().cloned().map(|a| NamedStyleLayout {
                 index: a.index,
                 name: a.name.map(|s| source(id, s)),
             }),
-            clip_region: r.clip_region.map(|a| ClipRegionLayout {
+            clip_region: r.clip_region().cloned().map(|a| ClipRegionLayout {
                 options: a.options,
                 point_count: a.point_count,
                 points: source(id, a.points),
             }),
-            user_index: r.user_index.map(|a| user_index(id, *a)),
-            user_index_data: r.user_index_data.map(|a| user_index_data(id, *a)),
-            line_weight: r.line_weight.map(|a| MarkerSizeLayout {
+            user_index: r.user_index().cloned().map(|a| user_index(id, a)),
+            user_index_data: r.user_index_data().cloned().map(|a| user_index_data(id, a)),
+            line_weight: r.line_weight().cloned().map(|a| MarkerSizeLayout {
                 value_bits: a.value_bits,
                 units: a.units,
             }),
-            visibility: r.visibility.map(|v| VisibilityLayout {
+            visibility: r.visibility().cloned().map(|v| VisibilityLayout {
                 mask: v.mask,
                 value: v.value,
             }),
-            marker_size: r.marker_size.map(|m| MarkerSizeLayout {
+            marker_size: r.marker_size().cloned().map(|m| MarkerSizeLayout {
                 value_bits: m.value_bits,
                 units: m.units,
             }),
-            glyph: r.glyph.map(|l| GlyphLayout {
+            glyph: r.glyph().cloned().map(|l| GlyphLayout {
                 name: source(id, l.name),
                 definition: source(id, l.definition),
             }),
-            line_style: r.line_style.map(|l| LineStyleLayout {
+            line_style: r.line_style().cloned().map(|l| LineStyleLayout {
                 name: source(id, l.name),
                 definition: source(id, l.definition),
             }),
-            font: r.font.map(|f| FontLayout {
+            font: r.font().cloned().map(|f| FontLayout {
                 format: f.format,
                 name: source(id, f.name),
                 encoding: f.encoding,
                 lookup: source(id, f.lookup),
                 data: source(id, f.data),
             }),
-            id: format!("{id}/{}", r.id),
-            opcode: r.opcode,
-            kind: r.kind,
-            source: source(id, r.source),
-            scope: r.scope.map(|s| format!("{id}/{s}")),
-            payload: r.payload.map(|s| source(id, s)),
-            condition: r.condition.map(|s| source(id, s)),
-            value: r.value,
-            view: r.view.map(|v| ViewLayout {
+            view: r.view().cloned().map(|v| ViewLayout {
                 projection: v.projection,
                 camera: source(id, v.camera),
                 name: source(id, v.name),
             }),
-            user_data: r.user_data.map(|u| UserDataLayout {
+            user_data: r.user_data().cloned().map(|u| UserDataLayout {
                 profile: u.profile,
                 declared_length: u.declared_length,
                 computed_payload_length: u.computed_payload_length,
@@ -313,7 +305,7 @@ pub(crate) fn project(
                     })
                     .collect(),
             }),
-            primitive: r.primitive.map(|p| PrimitiveLayout {
+            primitive: r.primitive().cloned().map(|p| PrimitiveLayout {
                 point_count: p.point_count,
                 points: source(id, p.points),
                 center: p.center.map(|s| source(id, s)),
@@ -325,7 +317,7 @@ pub(crate) fn project(
                     points: source(id, a.points),
                 }),
             }),
-            poly_polyline: r.poly_polyline.map(|p| PolyPolylineLayout {
+            poly_polyline: r.poly_polyline().cloned().map(|p| PolyPolylineLayout {
                 flags: p.flags,
                 point_count: p.point_count,
                 primitive_count: p.primitive_count,
@@ -334,7 +326,7 @@ pub(crate) fn project(
                 points: source(id, p.points),
                 leftovers: source(id, p.leftovers),
             }),
-            shell: r.shell.map(|s| ShellLayout {
+            shell: r.shell().cloned().map(|s| ShellLayout {
                 null: s.null,
                 flags: s.flags,
                 extended_flags: s.extended_flags,
@@ -351,6 +343,14 @@ pub(crate) fn project(
                 face_bits: s.face_bits,
                 faces: source(id, s.faces),
                 normals: s.normals.map(|s| source(id, s)),
+                connectivity: s.connectivity.map(|c| ConnectivityLayout {
+                    scheme: c.scheme,
+                    stream: source(id, c.stream),
+                    stream_scheme: c.stream_scheme,
+                    points_scheme: c.points_scheme,
+                    normals_scheme: c.normals_scheme,
+                    opcode_count: c.opcode_count,
+                }),
                 attributes: s
                     .attributes
                     .into_iter()
@@ -361,14 +361,22 @@ pub(crate) fn project(
                             .fields
                             .into_iter()
                             .map(|f| OperandField {
-                                name: f.name,
-                                encoding: f.encoding,
+                                name: f.name.into_owned(),
+                                encoding: f.encoding.into_owned(),
                                 source: source(id, f.source),
                             })
                             .collect(),
                     })
                     .collect(),
             }),
+            id: format!("{id}/{}", r.id),
+            opcode: r.opcode,
+            kind: r.kind.into_owned(),
+            source: source(id, r.source),
+            scope: r.scope.map(|s| format!("{id}/{s}")),
+            payload: r.payload.map(|s| source(id, s)),
+            condition: r.condition.map(|s| source(id, s)),
+            value: r.value,
         })
         .collect();
     Ok(HsfDocument {

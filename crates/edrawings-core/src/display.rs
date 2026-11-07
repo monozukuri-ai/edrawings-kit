@@ -286,7 +286,7 @@ fn configuration_subtree(
         };
         if numbered(Some(name), "config") {
             budget.charge_output(128)?;
-            configs.push((r.id.clone(), name.to_owned(), number(name, "config")));
+            configs.push((r.id.to_string(), name.to_owned(), number(name, "config")));
         }
     }
     if configs.is_empty() {
@@ -301,7 +301,7 @@ fn configuration_subtree(
         .filter(|r| r.opcode == b'V')
         .filter_map(|r| {
             let scope = r.scope.as_deref()?;
-            let v = r.visibility.as_ref()?;
+            let v = r.visibility()?;
             (v.mask & 1 != 0 && v.value & 1 == 0 && configs.iter().any(|c| c.0 == scope))
                 .then_some(scope)
         })
@@ -318,7 +318,7 @@ fn configuration_subtree(
         if let Some(text) = hsf_core::user_option_text(doc, r, budget).map_err(failed)? {
             records.push(UserOptions {
                 node_id: scope.to_owned(),
-                source_record_id: r.id.clone(),
+                source_record_id: r.id.to_string(),
                 text: text_value(entry, text),
             });
         }
@@ -385,7 +385,7 @@ pub(crate) fn read(
             .data
             .records
             .get(3)
-            .and_then(|r| r.user_data.as_ref())
+            .and_then(|r| r.user_data())
             .map(|u| u.profile.clone());
         header_strings = [
             "leading_string_0",
@@ -513,7 +513,7 @@ pub(crate) fn read(
             .iter()
             .map(|u| UserOptions {
                 node_id: u.node_id.clone(),
-                source_record_id: u.source_record_id.clone(),
+                source_record_id: u.source_record_id.to_string(),
                 text: text_value(&entry, u.text.clone()),
             })
             .collect::<Vec<_>>(),
@@ -989,7 +989,7 @@ pub(crate) fn read(
         let path_nodes: Vec<usize> = inst
             .path
             .iter()
-            .filter_map(|id| node_index.get(id.as_str()).copied())
+            .filter_map(|id| node_index.get(&**id).copied())
             .collect();
         let config_hit = path_nodes
             .iter()
@@ -1025,7 +1025,7 @@ pub(crate) fn read(
         let mut chain: Vec<String> = Vec::new();
         let mut body_name: Option<String> = None;
         for (k, id) in inst.path.iter().enumerate() {
-            let Some(&i) = node_index.get(id.as_str()) else {
+            let Some(&i) = node_index.get(&**id) else {
                 continue;
             };
             let Some(n) = name_of(i) else {
@@ -1054,7 +1054,7 @@ pub(crate) fn read(
                     .iter()
                     .position(|p| p.starts_with("reference:"))
                     .and_then(|k| k.checked_sub(1))
-                    .and_then(|k| node_index.get(inst.path[k].as_str()).copied());
+                    .and_then(|k| node_index.get(&*inst.path[k]).copied());
                 let fallback = including.or_else(|| node_index.get(inst.node_id.as_str()).copied());
                 fallback
                     .and_then(|i| nodes[i].name.as_deref().map(component_name))
@@ -1062,7 +1062,7 @@ pub(crate) fn read(
             }
         };
         let component_path = chain.join("/");
-        let face_visibility = match inst.face_visible.as_ref() {
+        let face_visibility = match inst.face_visible() {
             None => 2,
             Some(a) if a.value => 1,
             Some(_) => 0,
@@ -1077,20 +1077,20 @@ pub(crate) fn read(
             .path
             .iter()
             .rev()
-            .filter_map(|id| node_index.get(id.as_str()))
+            .filter_map(|id| node_index.get(&**id))
             .find_map(|i| visibility_overrides.get(i).copied());
         let defaulted = inst
             .path
             .iter()
             .rev()
-            .filter_map(|id| default_visibility.get(id.as_str()))
+            .filter_map(|id| default_visibility.get(&**id))
             .next()
             .copied();
         let own_flag = if selected.is_some() {
             inst.path
                 .iter()
                 .rev()
-                .filter_map(|id| node_index.get(id.as_str()).copied())
+                .filter_map(|id| node_index.get(&**id).copied())
                 .filter(|i| !above_selected.contains(i))
                 .find_map(|i| nodes[i].face_visible.as_ref().map(|a| a.value))
                 .unwrap_or(true)
@@ -1106,7 +1106,7 @@ pub(crate) fn read(
             }
         }
         let owner = node_index.get(inst.node_id.as_str()).copied();
-        let (color, source_code) = if let Some(c) = &inst.face_color {
+        let (color, source_code) = if let Some(c) = inst.face_color() {
             stats.colors_from_hsf += 1;
             ([c.value[0], c.value[1], c.value[2], 255], COLOR_SOURCE_HSF)
         } else if options.colors == ColorPolicy::MaterialsXml

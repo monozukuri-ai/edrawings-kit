@@ -97,7 +97,7 @@ fn vertex_parameters(id: &str, p: &hsf_core::VertexParameters) -> VertexParamete
 }
 fn line_style_element(id: &str, e: hsf_core::LineStyleElement) -> LineStyleElement {
     LineStyleElement {
-        kind: e.kind,
+        kind: e.kind.into_owned(),
         length: e.length,
         units: e.units,
         stretchable: e.stretchable,
@@ -120,7 +120,7 @@ fn line_style_measure(id: &str, m: hsf_core::LineStyleMeasure) -> LineStyleMeasu
 fn line_style_program(id: &str, p: hsf_core::LineStyleProgram) -> LineStyleProgram {
     LineStyleProgram {
         transformed_source: p.transformed_source.map(|s| source(id, s)),
-        kind: p.kind,
+        kind: p.kind.into_owned(),
         interpretation_status: status(p.interpretation_status),
         reason: p.reason,
         elements: p
@@ -180,8 +180,8 @@ fn rendering_settings(id: &str, s: hsf_core::RenderingSettings) -> RenderingSett
             .operands
             .into_iter()
             .map(|f| RenderingOperand {
-                name: f.name,
-                encoding: f.encoding,
+                name: f.name.into_owned(),
+                encoding: f.encoding.into_owned(),
                 source: source(id, f.source),
                 floats: f.floats,
                 integers: f.integers,
@@ -212,7 +212,7 @@ fn glyph(id: &str, g: hsf_core::GlyphDefinition) -> GlyphDefinition {
                 .into_iter()
                 .map(|c| GlyphCommand {
                     code: c.code,
-                    kind: c.kind,
+                    kind: c.kind.into_owned(),
                     points: c.points,
                     color: c.color,
                     source: source(id, c.source),
@@ -271,7 +271,7 @@ pub(crate) fn read(
         .iter()
         .map(|i| &i.path)
         .chain(scene.data.primitive_instances.iter().map(|i| &i.path))
-        .flatten()
+        .flat_map(|path| path.iter())
         .map(|p| (p.len() + id.len() + 64) as u64)
         .sum();
     let text_bytes: u64 = scene
@@ -612,7 +612,7 @@ pub(crate) fn read(
                 node_id: qualify(&a.node_id),
                 source_record_id: qualify(&a.source_record_id),
                 source: source(&id, a.source),
-                kind: a.kind,
+                kind: a.kind.into_owned(),
                 interpretation_status: status(a.interpretation_status),
             })
             .collect(),
@@ -723,7 +723,7 @@ pub(crate) fn read(
             .map(|p| PrimitiveInfo {
                 id: qualify(&p.id),
                 owner_node_id: qualify(&p.owner_node_id),
-                kind: p.kind.clone(),
+                kind: p.kind.to_string(),
                 source: source(&id, p.source.clone()),
                 source_record_id: qualify(&p.source_record_id),
                 points_source: source(&id, p.points_source.clone()),
@@ -790,7 +790,7 @@ pub(crate) fn read(
                         .fields
                         .iter()
                         .map(|f| EntityMetadataField {
-                            kind: f.kind.clone(),
+                            kind: f.kind.to_string(),
                             text: text_value(&id, f.text.clone()),
                         })
                         .collect(),
@@ -849,7 +849,7 @@ pub(crate) fn read(
                 node_id: qualify(&r.node_id),
                 target_id: r.target_id.map(|s| qualify(&s)),
                 source: source(&id, r.source),
-                kind: r.kind,
+                kind: r.kind.into_owned(),
                 transform: r.transform,
             })
             .collect(),
@@ -857,6 +857,8 @@ pub(crate) fn read(
             .instances
             .into_iter()
             .map(|i| SceneInstance {
+                face_color: attr(&id, i.face_color().cloned()),
+                face_visible: attr(&id, i.face_visible().cloned()),
                 display: display(&id, (*i.display).clone()),
                 world_handedness: handedness(&id, i.world_handedness),
                 id: qualify(&i.id),
@@ -865,8 +867,6 @@ pub(crate) fn read(
                 path: i.path.iter().map(|p| qualify(p)).collect(),
                 world_transform: i.world_transform,
                 determinant: i.determinant,
-                face_color: attr(&id, i.face_color),
-                face_visible: attr(&id, i.face_visible),
             })
             .collect(),
     };
@@ -908,18 +908,21 @@ pub(crate) fn text_value(id: &str, t: hsf_core::TextValue) -> TextValue {
     }
 }
 fn display(id: &str, d: hsf_core::DisplayAttributes) -> DisplayAttributes {
+    fn owned<T: Clone>(a: Option<Arc<T>>) -> Option<T> {
+        a.map(Arc::unwrap_or_clone)
+    }
     DisplayAttributes {
-        text_anchor: d.text_anchor.map(|a| SceneAttribute {
+        text_anchor: owned(d.text_anchor).map(|a| SceneAttribute {
             source: source(id, a.source),
             value: enumerated(a.value),
         }),
-        text_justification: d.text_justification.map(|a| SceneAttribute {
+        text_justification: owned(d.text_justification).map(|a| SceneAttribute {
             source: source(id, a.source),
             value: enumerated(a.value),
         }),
-        line_pattern: line_pattern(id, d.line_pattern),
-        edge_pattern: line_pattern(id, d.edge_pattern),
-        marker_symbol: d.marker_symbol.map(|a| SceneAttribute {
+        line_pattern: line_pattern(id, owned(d.line_pattern)),
+        edge_pattern: line_pattern(id, owned(d.edge_pattern)),
+        marker_symbol: owned(d.marker_symbol).map(|a| SceneAttribute {
             source: source(id, a.source),
             value: MarkerSymbol {
                 binding: a.value.binding.map(|b| line_style_binding(id, b)),
@@ -929,30 +932,30 @@ fn display(id: &str, d: hsf_core::DisplayAttributes) -> DisplayAttributes {
                 interpretation_status: status(a.value.interpretation_status),
             },
         }),
-        texture_matrix: attr(id, d.texture_matrix),
-        edge_weight: d.edge_weight.map(|a| SceneAttribute {
+        texture_matrix: attr(id, owned(d.texture_matrix)),
+        edge_weight: owned(d.edge_weight).map(|a| SceneAttribute {
             value: MarkerSize {
                 value: a.value.value,
                 units: a.value.units,
             },
             source: source(id, a.source),
         }),
-        line_weight: d.line_weight.map(|a| SceneAttribute {
+        line_weight: owned(d.line_weight).map(|a| SceneAttribute {
             value: MarkerSize {
                 value: a.value.value,
                 units: a.value.units,
             },
             source: source(id, a.source),
         }),
-        marker_size: d.marker_size.map(|a| SceneAttribute {
+        marker_size: owned(d.marker_size).map(|a| SceneAttribute {
             value: MarkerSize {
                 value: a.value.value,
                 units: a.value.units,
             },
             source: source(id, a.source),
         }),
-        colors: d.colors.map(|a| attr(id, a)),
-        visibility: d.visibility.map(|a| attr(id, a)),
+        colors: d.colors.to_array().map(|a| attr(id, a)),
+        visibility: d.visibility.to_array().map(|a| attr(id, a)),
     }
 }
 
