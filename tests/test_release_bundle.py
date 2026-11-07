@@ -94,7 +94,7 @@ def test_rejects_stale_incomplete_or_changed_ci_artifacts(
 
 
 def test_missing_platform_is_rejected(candidates, tmp_path):
-    next((candidates / "wheels-macos-14-python-3.10/dist").glob("*.whl")).unlink()
+    next((candidates / "wheels-macos-15-python-3.10/dist").glob("*.whl")).unlink()
     with pytest.raises(ValueError, match="inventory"):
         release.prepare(candidates, tmp_path / "bundle")
 

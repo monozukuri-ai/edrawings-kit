@@ -15,7 +15,7 @@ from verify_artifacts import audit_wheel
 PLATFORMS = {
     "ubuntu-22.04": "manylinux_2_34_x86_64",
     "windows-2022": "win_amd64",
-    "macos-14": "macosx_11_0_arm64",
+    "macos-15": "macosx_11_0_arm64",
 }
 
 
