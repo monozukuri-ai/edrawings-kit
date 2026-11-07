@@ -123,10 +123,13 @@ pub(crate) fn profile(
         return Ok(out);
     };
     let raw_matrix = scene.source_bytes(matrix)?;
-    if raw_matrix.chunks_exact(4).enumerate().any(|(i, b)| {
-        u32::from_le_bytes(b.try_into().expect("four bytes"))
-            != if i % 5 == 0 { 1f32.to_bits() } else { 0 }
-    }) || raw_words[..12] != [0, 0, 0, 0, 2, 0, 0, 0, 4, 0, 0, 0]
+    if raw_matrix
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .enumerate()
+        .any(|(i, b)| u32::from_le_bytes(*b) != if i % 5 == 0 { 1f32.to_bits() } else { 0 })
+        || raw_words[..12] != [0, 0, 0, 0, 2, 0, 0, 0, 4, 0, 0, 0]
     {
         return Ok(reject(out, "drawing.plane_header_unverified"));
     }

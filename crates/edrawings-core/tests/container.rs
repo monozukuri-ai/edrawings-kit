@@ -126,17 +126,11 @@ fn compare_hsf_direct(doc: &Document, id: &str) {
                 .unwrap(),
             original.bytes()
         );
-        if original.parent.is_some() {
+        if let Some(original_parent) = &original.parent {
             let parent = parsed
                 .source_bytes(domain.parent.as_ref().unwrap())
                 .unwrap();
-            assert_eq!(
-                parent,
-                direct
-                    .data
-                    .source_bytes(original.parent.as_ref().unwrap())
-                    .unwrap()
-            );
+            assert_eq!(parent, direct.data.source_bytes(original_parent).unwrap());
         }
     }
     assert_eq!(

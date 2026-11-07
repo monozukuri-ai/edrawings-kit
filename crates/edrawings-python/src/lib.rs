@@ -267,7 +267,7 @@ fn words<'py>(
         .checked_mul(4)
         .ok_or_else(|| PyValueError::new_err("Buffer size overflow"))?;
     PyBytes::new_with(py, size, |out| {
-        for (dst, value) in out.chunks_exact_mut(4).zip(values) {
+        for (dst, value) in out.as_chunks_mut::<4>().0.iter_mut().zip(values) {
             dst.copy_from_slice(&value);
         }
         Ok(())
@@ -373,7 +373,7 @@ fn doubles<'py>(
         .checked_mul(8)
         .ok_or_else(|| PyValueError::new_err("Buffer size overflow"))?;
     PyBytes::new_with(py, size, |out| {
-        for (dst, value) in out.chunks_exact_mut(8).zip(values) {
+        for (dst, value) in out.as_chunks_mut::<8>().0.iter_mut().zip(values) {
             dst.copy_from_slice(&value);
         }
         Ok(())
@@ -436,7 +436,7 @@ impl DisplayHandle {
                 i.component_paths.iter().map(|v| v.to_le_bytes()),
             ),
             "colors" => PyBytes::new_with(py, i.colors.len() * 4, |out| {
-                for (dst, value) in out.chunks_exact_mut(4).zip(&i.colors) {
+                for (dst, value) in out.as_chunks_mut::<4>().0.iter_mut().zip(&i.colors) {
                     dst.copy_from_slice(value);
                 }
                 Ok(())

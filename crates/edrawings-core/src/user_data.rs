@@ -41,10 +41,7 @@ impl UserDataPolicy {
             || r.scope.is_some()
             || r.source.domain_id != "hsf:1"
             || r.source.offset != 0
-            || parsed.records[..3]
-                .iter()
-                .map(|r| r.opcode)
-                .ne([b'I', b'B', b'Z'])
+            || parsed.records[..3].iter().map(|r| r.opcode).ne(*b"IBZ")
             || next.source.domain_id != r.source.domain_id
             || r.source.offset.checked_add(r.source.length) != Some(next.source.offset)
             || !matches!(next.opcode, b'h' | b'}')
@@ -224,8 +221,10 @@ impl<'a> Cursor<'a> {
 }
 fn finite(bytes: &[u8]) -> Result<(), HsfError> {
     if bytes
-        .chunks_exact(4)
-        .any(|b| !f32::from_le_bytes(b.try_into().expect("four")).is_finite())
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .any(|b| !f32::from_le_bytes(*b).is_finite())
     {
         return Err(mismatch("Nonfinite float candidate"));
     }
@@ -244,7 +243,7 @@ impl UserDataProfile for FirstBe {
             || context.offset != 0
             || !context.compressed
             || root.len() != 3
-            || root.iter().map(|r| r.opcode).ne([b'I', b'B', b'Z'])
+            || root.iter().map(|r| r.opcode).ne(*b"IBZ")
             || root
                 .iter()
                 .any(|r| r.source.domain_id != "hsf:0" || r.scope.is_some())
@@ -281,7 +280,11 @@ impl UserDataProfile for FirstBe {
             revision,
         ) {
             (8, 5, 22) => 4,
-            (14, 50, 39) | (19, 10, 45 | 46 | 47 | 48 | 51) => 48,
+            // 49 (SOLIDWORKS 2023, and 2015 files re-saved as `46;49;`) and 50
+            // (SOLIDWORKS 2024, HOOPS Exchange Reader 32.5) were observed on
+            // uploaded assemblies with the same fields, tail and accounting as
+            // 48 and 51; before, their whole model was left unparsed.
+            (14, 50, 39) | (19, 10, 45..=51) => 48,
             _ => return Err(mismatch("Unverified HSF/revision pair")),
         };
         c.flag("flag_1")?;
@@ -368,7 +371,7 @@ impl UserDataProfile for BeEnvelope {
         {
             (8, 5) => &[22],
             (14, 50) => &[39],
-            (19, 10) => &[45, 46, 47, 48, 51],
+            (19, 10) => &[45, 46, 47, 48, 49, 50, 51],
             _ => return Ok(None),
         };
         let Some(&revision) = candidates.iter().find(|revision| {

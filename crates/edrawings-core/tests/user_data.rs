@@ -66,6 +66,8 @@ fn profiles_preserve_fields_and_continue_only_from_computed_end() {
         ("19.10", 46),
         ("19.10", 47),
         ("19.10", 48),
+        ("19.10", 49),
+        ("19.10", 50),
         ("19.10", 51),
     ] {
         for include in [b"".as_slice(), b"/include/test"] {
@@ -148,7 +150,7 @@ fn all_truncations_and_false_boundaries_stop_without_resync() {
         wrong_stop,
         block(46, b"", 1),
         block(46, b"x", 2),
-        block(49, b"", 2),
+        block(52, b"", 2),
     ] {
         bad.extend(b"]U\x03\0x=yz");
         let p = parse(&doc(&file("19.10", &bad, &root())));
