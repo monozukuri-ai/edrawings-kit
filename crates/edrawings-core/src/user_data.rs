@@ -28,8 +28,10 @@ impl UserDataPolicy {
         }
     }
     /// Inventory authorization is narrower than syntax opt-in: the empirical
-    /// root header must be followed immediately by a fully framed h or } (or
-    /// the marker size `+` that the Creo 11 publisher writes there at 21.15).
+    /// root header must be followed immediately by a fully framed h or }, or
+    /// by what the third-party publishers write there: the marker size `+`
+    /// (Creo 10 at 21.00, Creo 11 at 21.15) or a root segment `(` (the CATIA V5
+    /// publisher at 19.00, the Creo Elements/Direct publisher at 19.10).
     /// This does not authorize placements or interpretation of private fields.
     pub(crate) fn inventory_record(self, parsed: &hsf_core::HsfDocument) -> Option<String> {
         if matches!(self, Self::Disabled) {
@@ -37,7 +39,12 @@ impl UserDataPolicy {
         }
         let r = parsed.records.get(3)?;
         let next = parsed.records.get(4)?;
-        let creo = (parsed.header.version.major, parsed.header.version.minor) == (21, 15);
+        let version = (parsed.header.version.major, parsed.header.version.minor);
+        let publisher = match version {
+            (21, 0) | (21, 15) => next.opcode == b'+',
+            (19, 0) | (19, 10) => next.opcode == b'(' && next.scope.is_none(),
+            _ => false,
+        };
         if r.opcode != b'['
             || r.user_data().is_none()
             || r.scope.is_some()
@@ -46,7 +53,7 @@ impl UserDataPolicy {
             || parsed.records[..3].iter().map(|r| r.opcode).ne(*b"IBZ")
             || next.source.domain_id != r.source.domain_id
             || r.source.offset.checked_add(r.source.length) != Some(next.source.offset)
-            || !(matches!(next.opcode, b'h' | b'}') || (creo && next.opcode == b'+'))
+            || !(matches!(next.opcode, b'h' | b'}') || publisher)
         {
             return None;
         }
@@ -201,9 +208,9 @@ impl<'a> Cursor<'a> {
             self.take(label, 4)?.try_into().expect("four"),
         ))
     }
-    fn blob(&mut self, label: &str, expected: Option<u8>) -> Result<&'a [u8], HsfError> {
+    fn blob(&mut self, label: &str, expected: Option<&[u8]>) -> Result<&'a [u8], HsfError> {
         let n = self.byte(&format!("{label}_length"))?;
-        if expected.is_some_and(|value| value != n) {
+        if expected.is_some_and(|values| !values.contains(&n)) {
             return Err(mismatch("Opaque blob size is outside the observed profile"));
         }
         if u64::from(n) > self.max_string {
@@ -289,20 +296,24 @@ impl UserDataProfile for FirstBe {
             // HSF 20.90 (SOLIDWORKS 2025 and 2026) keeps the same header fields
             // under revisions 49 to 51, with an empty include path, as do 17.85
             // (SOLIDWORKS 2011, revision 43), 18.00 (2012, 44) and the Creo 11
-            // publisher's 21.15 (51).
+            // publisher's 21.15 (51). So do the DXF/DWG reader's 18.00 drawings
+            // at revision 43, the CATIA V5 publisher's 19.00 (45) and the Creo 10
+            // publisher's 21.00 (50).
             (14, 50, 39)
             | (17, 85, 43)
-            | (18, 0, 44)
+            | (18, 0, 43..=44)
+            | (19, 0, 45)
             | (19, 10, 45..=51)
             | (20, 90, 49..=51)
+            | (21, 0, 50)
             | (21, 15, 51) => 48,
             _ => return Err(mismatch("Unverified HSF/revision pair")),
         };
         c.flag("flag_1")?;
         c.take("opaque_words", 16)?;
         let include_len = c.blob("include_path_candidate", None)?.len();
-        c.blob("opaque_blob_0", Some(16))?;
-        c.blob("opaque_blob_1", Some(16))?;
+        c.blob("opaque_blob_0", Some(&[16]))?;
+        c.blob("opaque_blob_1", Some(&[16]))?;
         c.blob("configuration_candidate", None)?;
         c.take("opaque_flags", 2)?;
         let text = c.blob("revision_string_candidate", None)?;
@@ -310,11 +321,12 @@ impl UserDataProfile for FirstBe {
             return Err(mismatch("Revision integer and string disagree"));
         }
         c.take("opaque_flag", 1)?;
-        // The Creo 11 publisher (21.15) writes 16 bytes here; SOLIDWORKS 24.
-        let blob_2 = if (context.header.version.major, context.header.version.minor) == (21, 15) {
-            16
-        } else {
-            24
+        // PTC's publishers write 16 bytes here (Pro/ENGINEER Wildfire 4 at 19.10,
+        // Creo 10 at 21.00, Creo 11 at 21.15); SOLIDWORKS and the other writers 24.
+        let blob_2: &[u8] = match (context.header.version.major, context.header.version.minor) {
+            (21, 0) | (21, 15) => &[16],
+            (19, 10) => &[16, 24],
+            _ => &[24],
         };
         c.blob("opaque_blob_2", Some(blob_2))?;
         let tail_bytes = c.take("revision_tail", tail)?;
@@ -389,9 +401,11 @@ impl UserDataProfile for BeEnvelope {
             (8, 5) => &[22],
             (14, 50) => &[39],
             (17, 85) => &[43],
-            (18, 0) => &[44],
+            (18, 0) => &[43, 44],
+            (19, 0) => &[45],
             (19, 10) => &[45, 46, 47, 48, 49, 50, 51],
             (20, 90) => &[49, 50, 51],
+            (21, 0) => &[50],
             (21, 15) => &[51],
             _ => return Ok(None),
         };
@@ -407,12 +421,13 @@ impl UserDataProfile for BeEnvelope {
         // This is an exact opaque envelope, not a guess about integer widths or
         // a correction added to the declared length. It must occupy the entire
         // remaining decoded domain, followed by z, and the parent must end in 0.
-        // Revision 47 files carry configuration bitmaps instead; eDrawings 2026
-        // writes the same bitmap envelope under revision 51 (observed on a
-        // re-saved 11-configuration assembly), so the longer form is tried
-        // whenever the plain envelope cannot fill the domain.
+        // Revision 47 files usually carry configuration bitmaps instead (some
+        // write the plain envelope); eDrawings 2026 writes the same bitmap
+        // envelope under revision 51 (observed on a re-saved 11-configuration
+        // assembly), so the longer form is tried whenever the plain envelope
+        // cannot fill the domain.
         let zeros = if revision == 22 { 8 } else { 12 };
-        if revision == 47 || (revision >= 45 && bytes.len() != 12 + zeros) {
+        if revision >= 45 && bytes.len() != 12 + zeros {
             return terminal_bitmaps(context, bytes, revision).map(Some);
         }
         if bytes.len() != 12 + zeros || bytes.last() != Some(&b'z') {

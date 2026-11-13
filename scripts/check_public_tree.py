@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_DOCS = {"api.md", "cli.md", "development.md", "distribution.md", "support.md"}
 PUBLIC_DOCS |= {"ja/" + name for name in PUBLIC_DOCS}
 PUBLIC_SCRIPTS = {
+    "bump_version.py",
     "check_backend.py",
     "check_public_tree.py",
     "prepare_release.py",

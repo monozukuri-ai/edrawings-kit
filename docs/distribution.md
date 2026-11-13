@@ -101,8 +101,10 @@ uploads the bundle without publishing to PyPI or GitHub Releases:
 gh workflow run release.yml --ref main
 ```
 
-To publish, update the workspace version and `Cargo.lock`, commit and push the
-release changes, then create and push the matching tag from that commit:
+To publish, prepare the release with `scripts/bump_version.py` (see the
+[development guide](development.md#updating-hsf-core-and-the-version)), commit and
+push the release changes, then create and push the matching tag from that commit.
+The script prints these commands with the version filled in:
 
 ```bash
 tag="$(uv run --no-sync python -c 'from scripts.release_metadata import verify; print("v" + verify()["rust_version"])')"

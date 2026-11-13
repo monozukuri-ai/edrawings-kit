@@ -367,6 +367,116 @@ fn creo_marker_size_after_the_header_authorizes_inventory() {
     }
 }
 
+#[test]
+fn publisher_and_reader_headers_keep_the_fields() {
+    // The DXF/DWG reader's 18.00 drawings at revision 43, the CATIA V5
+    // publisher's 19.00 (45), and PTC's publishers with a 16-byte second blob:
+    // Creo 10 at 21.00 (50) and Pro/ENGINEER Wildfire 4 at 19.10 (48).
+    for (version, revision, blob_2, prefix) in [
+        ("18.00", 43, 24, root()),
+        ("19.00", 45, 24, root()),
+        ("21.00", 50, 16, root_2090()),
+        ("19.10", 48, 16, root()),
+    ] {
+        for include in [b"".as_slice(), b"/include/test"] {
+            let delta = 1 + u32::from(include.is_empty());
+            let header = block_with_blob_2(revision, include, delta, blob_2);
+            let body = [header.clone(), b"U\x03\0x=yz".to_vec()].concat();
+            let p = parse(&doc(&file(version, &body, &prefix)));
+            let s = p.summary();
+            assert!(s.unparsed.is_empty(), "{version}/{revision}");
+            let r = &s.records[3];
+            assert_eq!(p.source_bytes(&r.source).unwrap(), header);
+            assert_eq!(
+                r.user_data.as_ref().unwrap().profile,
+                format!("edrawings-first-be-v2-hsf-{version}-revision-{revision}")
+            );
+            assert_eq!(s.records[4].kind, "user_options");
+        }
+    }
+    // Other revisions, the SOLIDWORKS width under 21.00 and unobserved widths
+    // stay unverified.
+    for (version, header, prefix) in [
+        ("18.00", block(42, b"", 2), root()),
+        ("19.00", block(46, b"", 2), root()),
+        ("21.00", block_with_blob_2(51, b"", 2, 16), root_2090()),
+        ("21.00", block(50, b"", 2), root_2090()),
+        ("19.10", block_with_blob_2(48, b"", 2, 20), root()),
+    ] {
+        let body = [header, b"U\x03\0x=yz".to_vec()].concat();
+        let p = parse(&doc(&file(version, &body, &prefix)));
+        assert_eq!(
+            p.summary().diagnostics[0].code,
+            "edrawings.user_data_profile_mismatch",
+            "{version}"
+        );
+    }
+}
+#[test]
+fn publisher_records_after_the_header_authorize_inventory() {
+    // The CATIA V5 (19.00) and Creo Elements/Direct (19.10) publishers open a
+    // root segment right after the header; Creo 10 (21.00) writes a marker
+    // size there, like Creo 11. Elsewhere neither counts.
+    let line = |precision: bool| {
+        let mut b = vec![b'l'];
+        if precision {
+            b.push(0);
+        }
+        for f in [1f32, 2., 3., 4., 5., 6.] {
+            b.extend(f.to_le_bytes());
+        }
+        b
+    };
+    let segment = |precision| [b"(\x01a".as_slice(), &line(precision), b")"].concat();
+    let size = |precision| [b"+".as_slice(), &1f32.to_le_bytes(), &line(precision)].concat();
+    for (version, header, prefix, records, allowed) in [
+        ("19.00", block(45, b"", 2), root(), segment(false), true),
+        ("19.10", block(45, b"", 2), root(), segment(false), true),
+        ("18.00", block(44, b"", 2), root(), segment(false), false),
+        (
+            "20.90",
+            block(51, b"", 2),
+            root_2090(),
+            segment(true),
+            false,
+        ),
+        (
+            "21.00",
+            block_with_blob_2(50, b"", 2, 16),
+            root_2090(),
+            size(true),
+            true,
+        ),
+        ("19.10", block(45, b"", 2), root(), size(false), false),
+    ] {
+        let bytes = file(
+            version,
+            &[header.as_slice(), &records, b"z"].concat(),
+            &prefix,
+        );
+        let s = doc(&bytes)
+            .read_scene_with_user_data(None, HsfMode::Partial, UserDataPolicy::EdrawingsFirstBeV2)
+            .unwrap();
+        let summary = s.summary();
+        assert_eq!(summary.placement_status, Status::Unsupported);
+        assert_eq!(
+            summary.opaque_user_data.len(),
+            usize::from(allowed),
+            "{version}"
+        );
+        if allowed {
+            assert_eq!(summary.processed_records, summary.hsf.records.len() as u64);
+            assert_eq!(
+                s.primitive_points(&summary.primitives[0].id).unwrap(),
+                &[[1., 2., 3.], [4., 5., 6.]]
+            );
+        } else {
+            assert_eq!(summary.processed_records, 3);
+            assert!(summary.primitives.is_empty());
+        }
+    }
+}
+
 fn block_with_revision_string(revision: u32, text: &[u8]) -> Vec<u8> {
     fn blob(out: &mut Vec<u8>, b: &[u8]) {
         out.push(b.len() as u8);

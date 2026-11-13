@@ -141,7 +141,7 @@ def test_truncation_never_becomes_partial_success(record):
 @pytest.mark.parametrize(
     "record,code",
     [
-        (b"M\x01", "hsf.mesh_flags"),
+        (b"M\x02", "hsf.mesh_flags"),
         (b">\x80", "hsf.unsupported_camera_projection"),
         (b"t\0\0\0\x80\0\x80", "hsf.texture_flags"),
     ],

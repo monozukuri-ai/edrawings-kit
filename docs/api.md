@@ -77,6 +77,8 @@ except ed.UnsupportedFeatureError as error:
 Applying an experimental profile is recorded in diagnostics and rejected in
 `strict` mode. Unresolved User Data or rendering settings may prevent instance
 placement. The parser does not guess unknown versions or lengths to skip data.
+Images in JPEG format (flags 0x87) carry no alpha channel: their `alpha` and
+`alpha_compression` are `None`.
 
 The `import_root` argument to `read_scene` and `read_drawing` supplies an explicit
 absolute segment context. It does not fetch external files or infer unknown
@@ -131,6 +133,10 @@ Text is decoded strictly using known ASCII, ISO-8859-1, UTF-8, and Unicode16/32
 conventions. Unknown encodings retain the original information; malformed data in
 a known encoding raises an error. Dimension display text is not converted into
 true dimensions, tolerances, or geometric references.
+
+Ellipses and elliptical arcs (`kind` `ellipse` and `elliptical_arc`) keep their
+stored center and one point on each axis as their three points; `limits` holds
+an arc's parametric start and end. Nothing is fitted or tessellated.
 
 `read_drawing(mode="strict")` requires document semantics and currently raises an
 unsupported-feature exception. For strict validation of generic elements, use

@@ -272,7 +272,9 @@ def test_limits_and_unknown_batch_profiles():
         ).read_scene()
     with pytest.raises(ed.LimitExceededError):
         ed.read(raw(batch() + b"\0"), limits=ed.Limits(max_hsf_vertices=4)).parse_hsf()
-    for flags in [1, 4, 0x4000, 0x1500, 0x8000]:
+    # Global quantization, one-primitive omission, unknown bits, and quantized
+    # points without an unrestricted axis.
+    for flags in [8, 4, 0x4000, 0x1501, 0x8000]:
         h = (
             ed.read(raw(b"\x10" + struct.pack("<H", flags) + b"h\x01\0"))
             .parse_hsf()

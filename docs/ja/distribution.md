@@ -93,8 +93,9 @@ workflowの変更をpushした後、手動実行で指定refの検証とbundle�
 gh workflow run release.yml --ref main
 ```
 
-公開時はworkspaceのversionとCargo.lockを更新し、リリース変更をcommit・pushします。
-そのcommitから対応するタグを作成し、pushしてください。
+公開時は`scripts/bump_version.py`でリリースを準備し（[開発ガイド](development.md#hsf-coreと版の更新)を参照）、
+リリース変更をcommit・pushします。そのcommitから対応するタグを作成し、pushしてください。
+スクリプトは版を埋めたこれらのコマンドを表示します。
 
 ```bash
 tag="$(uv run --no-sync python -c 'from scripts.release_metadata import verify; print("v" + verify()["rust_version"])')"

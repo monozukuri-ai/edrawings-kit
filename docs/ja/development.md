@@ -41,16 +41,23 @@ uv run --no-sync python scripts/check_public_tree.py
 HSFの汎用構文はhsf-coreで扱い、eDrawings固有規約は本プロジェクトで扱います。
 未知の構文・属性・意味を黙って成功に変えず、診断と元バイトを保持してください。
 
-## 依存の更新
+## hsf-coreと版の更新
 
-hsf-coreの更新時はCargo.tomlとCargo.lockを更新し、変更内容を確認してから以下を実行します。
+`scripts/bump_version.py`でリリースの準備を1回で行います。
+Cargo.tomlの版を設定し、crates.io上の最新のhsf-coreに固定し、CargoでCargo.lockを更新し、
+`hsf-backend.lock.json`と同梱のライセンス一覧を書き直します。
+`patch`と`minor`は最新の`v*`タグから数えます。`0.3.0-alpha.1`のような明示的な版も指定できます。
+同じコマンドを再実行しても何も変わりません。
+`--check`を付けると、上記の品質チェックと2種類の試験も実行します。
 
 ```bash
-uv run --no-sync python scripts/check_backend.py --update
-uv run --no-sync python scripts/third_party_notices.py --write
-uv run --no-sync maturin develop
-uv run --no-sync pytest -q
+uv run --no-sync python scripts/bump_version.py patch --check
+uv run --no-sync python scripts/bump_version.py 0.3.0 --hsf-core 0.1.0-alpha.8
+uv run --no-sync python scripts/bump_version.py patch --hsf-core keep
 ```
+
+hsf-coreのcontract versionが変わった場合はスクリプトが表示します。
+リリース前にhsf-coreの変更履歴を確認してください。commit・タグ付け・公開は行いません。
 
 backend source hashにはCargoが展開したmanifestも含まれます。
 Git checkoutとregistry packageはmanifestの正規化により異なるhashになることがあります。

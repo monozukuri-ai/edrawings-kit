@@ -537,7 +537,7 @@ pub(crate) fn read(
                 compression: i.compression,
                 data_source: source(&id, i.data_source),
                 alpha_compression: i.alpha_compression,
-                alpha_source: source(&id, i.alpha_source),
+                alpha_source: i.alpha_source.map(|s| source(&id, s)),
                 interpretation_status: status(i.interpretation_status),
             })
             .collect(),
@@ -731,6 +731,7 @@ pub(crate) fn read(
                 part_lengths: p.part_lengths.clone(),
                 center: attr(&id, p.center.clone()),
                 text: p.text.clone().map(|t| text_value(&id, t)),
+                limits: attr(&id, p.limits.clone()),
             })
             .collect(),
         primitive_instances: data

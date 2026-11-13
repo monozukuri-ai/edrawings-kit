@@ -16,6 +16,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
+import bump_version  # noqa: E402
 import check_backend  # noqa: E402
 import check_public_tree  # noqa: E402
 import release_metadata  # noqa: E402
@@ -65,6 +66,83 @@ def test_version_mapping(rust, python):
 def test_version_mapping_rejects_ambiguous_forms(value):
     with pytest.raises(ValueError):
         release_metadata.python_version(value)
+
+
+def test_bump_orders_prereleases_by_semver_precedence():
+    versions = [
+        "0.1.0",
+        "0.1.0-alpha.10",
+        "0.1.0-alpha.9",
+        "0.1.0-beta.1",
+        "0.1.0-alpha",
+        "0.0.9",
+    ]
+    assert sorted(versions, key=bump_version.semver_key) == [
+        "0.0.9",
+        "0.1.0-alpha",
+        "0.1.0-alpha.9",
+        "0.1.0-alpha.10",
+        "0.1.0-beta.1",
+        "0.1.0",
+    ]
+
+
+@pytest.mark.parametrize(
+    "requested,tags,expected",
+    [
+        # Rerunning `patch` after a bump keeps the prepared, untagged version.
+        ("patch", ["0.2.3", "0.2.4"], "0.2.5"),
+        ("patch", ["0.2.9", "0.2.10"], "0.2.11"),
+        ("minor", ["0.2.4"], "0.3.0"),
+        ("0.3.0-alpha.1", ["0.2.4"], "0.3.0-alpha.1"),
+        ("patch", [], "0.2.6"),
+    ],
+)
+def test_bump_resolves_the_next_version(requested, tags, expected):
+    current = "0.2.10" if "0.2.10" in tags else "0.2.5"
+    assert bump_version.next_version(current, requested, tags) == expected
+
+
+@pytest.mark.parametrize(
+    "requested,tags",
+    [("0.2.4", []), ("0.2.6a1", []), ("patch", ["0.2.4", "0.3.0-alpha.1"])],
+)
+def test_bump_rejects_older_ambiguous_or_post_prerelease_versions(requested, tags):
+    with pytest.raises(ValueError):
+        bump_version.next_version("0.2.5", requested, tags)
+
+
+def test_bump_edits_only_the_version_and_backend_lines():
+    text = (ROOT / "Cargo.toml").read_text()
+    edited = bump_version.edit_manifest(text, "9.8.7", "0.1.0-alpha.99")
+    assert len(edited.splitlines()) == len(text.splitlines())
+    changed = [
+        new
+        for old, new in zip(text.splitlines(), edited.splitlines(), strict=True)
+        if old != new
+    ]
+    assert changed == [
+        'version = "9.8.7"',
+        'hsf-core = { version = "=0.1.0-alpha.99" }',
+    ]
+    assert bump_version.edit_manifest(edited, "9.8.7", "0.1.0-alpha.99") == edited
+    with pytest.raises(ValueError, match="hsf-core"):
+        bump_version.edit_manifest(
+            '[workspace.package]\nversion = "1.0.0"\n', "1.0.1", "0.1.0"
+        )
+
+
+def test_bump_follows_the_newest_unyanked_backend(monkeypatch):
+    published = {"0.1.0-alpha.9": False, "0.1.0-alpha.10": False}
+    published["0.1.0-alpha.11"] = True
+    monkeypatch.setattr(bump_version, "published_backends", lambda: published)
+    assert bump_version.choose_backend("latest", "0.1.0-alpha.9") == "0.1.0-alpha.10"
+    assert bump_version.choose_backend("keep", "0.1.0-alpha.9") == "0.1.0-alpha.9"
+    for unusable in ("0.1.0-alpha.11", "0.1.0-alpha.12"):
+        with pytest.raises(SystemExit):
+            bump_version.choose_backend(unusable, "0.1.0-alpha.9")
+    with pytest.raises(SystemExit, match="older"):
+        bump_version.choose_backend("latest", "0.1.0-beta.1")
 
 
 @pytest.fixture

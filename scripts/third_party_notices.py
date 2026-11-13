@@ -102,6 +102,10 @@ def main() -> None:
             path = destination / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(content)
+        # Directories of replaced crate versions remain once their files are gone.
+        for directory in sorted(destination.rglob("*"), reverse=True):
+            if directory.is_dir() and not any(directory.iterdir()):
+                directory.rmdir()
     elif actual != files:
         raise ValueError(
             "Dependency notices are stale; run scripts/third_party_notices.py --write"

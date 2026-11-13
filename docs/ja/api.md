@@ -73,6 +73,7 @@ except ed.UnsupportedFeatureError as error:
 実験プロファイルの採用はdiagnosticsに残り、strictでは拒否します。
 意味を確定できないUser Dataや描画設定が残る場合、インスタンス配置を抑止することがあります。
 未知の版や長さを推測して読み飛ばしません。
+JPEG形式の画像（flags 0x87）はalphaを持たず、`alpha`と`alpha_compression`は`None`です。
 `scene` / `drawing`の`import_root`は明示的な絶対segment文脈を指定するための引数です。
 外部ファイルを取得したり、未知の親属性を補完したりするものではありません。
 
@@ -119,6 +120,9 @@ active構成や一般的な有効表示状態は補完しません。図面XYの
 文字は既知のASCII・ISO-8859-1・UTF-8・Unicode16/32規約を厳密に復号します。
 未知encodingでは原情報を保持し、不正な既知encodingはエラーにします。
 寸法の表示文字から真値・公差・幾何参照を生成しません。
+
+楕円と楕円弧（`kind`が`ellipse`・`elliptical_arc`）は、保存された中心と各軸上の1点を3点として持ち、
+楕円弧の媒介変数の始点・終点は`limits`に入ります。当てはめや分割はしません。
 
 `read_drawing(mode="strict")`は文書意味まで要求するため、現在は未対応の例外になります。
 汎用要素の厳密検査には、対応する入力で`read_scene(mode="strict")`を使ってください。

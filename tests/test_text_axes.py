@@ -157,7 +157,7 @@ def test_unknown_region_and_batch_profiles_stop_without_resync():
     ]
     cases += [
         (b"\x10" + struct.pack("<H", flags), "hsf.poly_polyline_flags")
-        for flags in (1, 4, 6, 8, 0x4000, 0x8000)
+        for flags in (9, 4, 6, 8, 0x4000, 0x8000)
     ]
     for body, code in cases:
         doc = ed.read(raw(body + b"h\x01\0"))

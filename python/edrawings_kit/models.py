@@ -440,6 +440,7 @@ class PrimitiveLayout(Model):
     encoding: int | None
     text: HsfSpan | None
     text_region: TextRegionLayout | None
+    limits: HsfSpan | None
 
 
 @dataclass(frozen=True)
@@ -480,6 +481,8 @@ class PrimitiveInfo(Model):
     part_lengths: tuple[int, ...]
     center: PointAttribute | None
     text: TextValue | None
+    # Elliptical arcs: the stored parametric start and end (0-1).
+    limits: PointAttribute | None
 
 
 @dataclass(frozen=True)
@@ -953,6 +956,7 @@ class GridMeshLayout(Model):
     columns: int
     vertex_count: int
     vertices: HsfSpan
+    point_quantization: PointQuantization | None
     attributes: tuple[GridAttributeLayout, ...]
 
 
@@ -999,6 +1003,8 @@ class PolyPolylineLayout(Model):
     lengths: HsfSpan
     points: HsfSpan
     leftovers: HsfSpan
+    point_quantization: PointQuantization | None
+    leftover_quantization: PointQuantization | None
 
 
 @dataclass(frozen=True)
@@ -1020,8 +1026,8 @@ class ImageLayout(Model):
     height: int
     compression: int
     data: HsfSpan
-    alpha_compression: int
-    alpha: HsfSpan
+    alpha_compression: int | None
+    alpha: HsfSpan | None
 
 
 @dataclass(frozen=True)
@@ -1066,8 +1072,8 @@ class ImageDefinition(Model):
     height: int
     compression: int
     data_source: HsfSpan
-    alpha_compression: int
-    alpha_source: HsfSpan
+    alpha_compression: int | None
+    alpha_source: HsfSpan | None
     interpretation_status: Status
 
 

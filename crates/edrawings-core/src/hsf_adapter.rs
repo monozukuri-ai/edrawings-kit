@@ -180,7 +180,7 @@ pub(crate) fn project(
                 compression: a.compression,
                 data: source(id, a.data),
                 alpha_compression: a.alpha_compression,
-                alpha: source(id, a.alpha),
+                alpha: a.alpha.map(|s| source(id, s)),
             }),
             camera: r.camera().cloned().map(|a| CameraLayout {
                 projection: a.projection,
@@ -215,6 +215,11 @@ pub(crate) fn project(
                 columns: a.columns,
                 vertex_count: a.vertex_count,
                 vertices: source(id, a.vertices),
+                point_quantization: a.point_quantization.map(|q| PointQuantization {
+                    scheme: q.scheme,
+                    bits_per_sample: q.bits_per_sample,
+                    bounds: source(id, q.bounds),
+                }),
                 attributes: a
                     .attributes
                     .into_iter()
@@ -316,6 +321,7 @@ pub(crate) fn project(
                     point_count: a.point_count,
                     points: source(id, a.points),
                 }),
+                limits: p.limits.map(|s| source(id, s)),
             }),
             poly_polyline: r.poly_polyline().cloned().map(|p| PolyPolylineLayout {
                 flags: p.flags,
@@ -325,6 +331,16 @@ pub(crate) fn project(
                 lengths: source(id, p.lengths),
                 points: source(id, p.points),
                 leftovers: source(id, p.leftovers),
+                point_quantization: p.point_quantization.map(|q| PointQuantization {
+                    scheme: q.scheme,
+                    bits_per_sample: q.bits_per_sample,
+                    bounds: source(id, q.bounds),
+                }),
+                leftover_quantization: p.leftover_quantization.map(|q| PointQuantization {
+                    scheme: q.scheme,
+                    bits_per_sample: q.bits_per_sample,
+                    bounds: source(id, q.bounds),
+                }),
             }),
             shell: r.shell().cloned().map(|s| ShellLayout {
                 null: s.null,

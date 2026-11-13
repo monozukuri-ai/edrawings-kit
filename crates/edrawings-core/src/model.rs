@@ -419,6 +419,8 @@ pub struct PrimitiveLayout {
     pub encoding: Option<u8>,
     pub text: Option<HsfSpan>,
     pub text_region: Option<TextRegionLayout>,
+    /// Elliptical arcs: the parametric start and end (two f32).
+    pub limits: Option<HsfSpan>,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TextRegionLayout {
@@ -446,6 +448,8 @@ pub struct PrimitiveInfo {
     pub part_lengths: Vec<u32>,
     pub center: Option<SceneAttribute<[f32; 3]>>,
     pub text: Option<TextValue>,
+    /// Elliptical arcs only: the stored parametric start and end (0–1).
+    pub limits: Option<SceneAttribute<[f32; 2]>>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DisplayAttributes {
@@ -914,7 +918,9 @@ pub struct GridMeshLayout {
     pub rows: u32,
     pub columns: u32,
     pub vertex_count: u32,
+    /// f32 XYZ triples, or packed codes when `point_quantization` is set.
     pub vertices: HsfSpan,
+    pub point_quantization: Option<PointQuantization>,
     pub attributes: Vec<GridAttributeLayout>,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1076,8 +1082,12 @@ pub struct PolyPolylineLayout {
     pub primitive_count: u32,
     pub dimensions: u8,
     pub lengths: HsfSpan,
+    /// f32 coordinates, or packed codes when `point_quantization` is set.
     pub points: HsfSpan,
     pub leftovers: HsfSpan,
+    pub point_quantization: Option<PointQuantization>,
+    /// Quantized shared/per-component values; `leftovers` then holds codes.
+    pub leftover_quantization: Option<PointQuantization>,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ShellAttributeLayout {
@@ -1097,8 +1107,9 @@ pub struct ImageLayout {
     pub height: u32,
     pub compression: u8,
     pub data: HsfSpan,
-    pub alpha_compression: u8,
-    pub alpha: HsfSpan,
+    /// None for formats without an alpha channel.
+    pub alpha_compression: Option<u8>,
+    pub alpha: Option<HsfSpan>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1151,8 +1162,9 @@ pub struct ImageDefinition {
     pub compression: u8,
     /// Encoded JPEG; no entropy decoding or pixel allocation is performed.
     pub data_source: HsfSpan,
-    pub alpha_compression: u8,
-    pub alpha_source: HsfSpan,
+    /// None for formats without an alpha channel.
+    pub alpha_compression: Option<u8>,
+    pub alpha_source: Option<HsfSpan>,
     pub interpretation_status: Status,
 }
 

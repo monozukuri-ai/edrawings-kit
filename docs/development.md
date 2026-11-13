@@ -43,17 +43,23 @@ Generic HSF syntax belongs in hsf-core; eDrawings-specific conventions belong in
 this project. Preserve diagnostics and original bytes for unknown syntax,
 attributes, and semantics instead of silently reporting success.
 
-## Updating dependencies
+## Updating hsf-core and the version
 
-When updating hsf-core, update `Cargo.toml` and `Cargo.lock`, review the changes,
-and then run:
+`scripts/bump_version.py` prepares a release in one command. It sets the version in
+`Cargo.toml`, pins the newest hsf-core release on crates.io, lets Cargo update
+`Cargo.lock`, and rewrites `hsf-backend.lock.json` and the bundled license
+inventory. `patch` and `minor` count from the newest `v*` tag; an explicit version
+such as `0.3.0-alpha.1` also works. Running the same command again changes nothing.
+`--check` then runs the quality checks above and both test suites.
 
 ```bash
-uv run --no-sync python scripts/check_backend.py --update
-uv run --no-sync python scripts/third_party_notices.py --write
-uv run --no-sync maturin develop
-uv run --no-sync pytest -q
+uv run --no-sync python scripts/bump_version.py patch --check
+uv run --no-sync python scripts/bump_version.py 0.3.0 --hsf-core 0.1.0-alpha.8
+uv run --no-sync python scripts/bump_version.py patch --hsf-core keep
 ```
+
+The script reports a change of the hsf-core contract version; review the hsf-core
+changelog before releasing. It does not commit, tag or publish.
 
 The backend source hash includes the manifest extracted by Cargo. A Git checkout
 and a registry package may have different hashes because Cargo normalizes the
