@@ -83,8 +83,9 @@ class Document:
         partial and rejected in strict mode. Raw field spans preserve unknowns.
         edrawings_be_envelope_v1 additionally recognizes a closed terminal zero
         envelope before compressed/file termination, also opaque and partial.
-        edrawings_1910_u32_v1 opts into observed named RGBA/JPEG image framing,
-        also partial only. Encoded image spans do not imply decoded pixels.
+        edrawings_1910_u32_v1 opts into observed named RGBA/JPEG image framing
+        (at HSF 7.00, named uncompressed RGB/RGBA images), also partial only.
+        Encoded image spans do not imply decoded pixels.
         """
         with _native_errors():
             handle = self._handle.parse_hsf(
@@ -236,8 +237,9 @@ class SceneResult:
         """Copy original local XYZ coordinates; no flattening or curve tessellation."""
         with _native_errors():
             data = self._handle.primitive_points(primitive_id)
-        primitive = next(p for p in self.summary.primitives if p.id == primitive_id)
-        return NumericBuffer(data, "<f4", (primitive.point_count, 3))
+        # Three little-endian floats per point: the count follows from the
+        # bytes, without a search through the primitives for every call.
+        return NumericBuffer(data, "<f4", (len(data) // 12, 3))
 
     def mesh_buffers(self, mesh_id: str) -> MeshBuffers:
         """Copy native arrays to immutable, little-endian bytes (no NumPy required).
@@ -298,10 +300,7 @@ class DrawingResult:
         """Original XYZ points; transforms and unresolved projection are separate."""
         with _native_errors():
             data = self._handle.primitive_points(primitive_id)
-        primitive = next(
-            p for p in self.summary.scene.primitives if p.id == primitive_id
-        )
-        return NumericBuffer(data, "<f4", (primitive.point_count, 3))
+        return NumericBuffer(data, "<f4", (len(data) // 12, 3))
 
 
 @dataclass(frozen=True)

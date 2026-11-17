@@ -140,6 +140,15 @@ def test_drawing_coordinates_unicode_provenance_and_unverified_sheets(
     assert drawing.source_bytes(label.source) == LABEL.encode("utf-16-le")
     with pytest.raises(ed.InvalidFormatError, match="scene.unknown_primitive"):
         drawing.primitive_points("absent")
+    # An ID is looked up by the slot its number names; the name must match too.
+    for unknown in ("mesh:0", "primitive:", "primitive:99999", "primitive:-1"):
+        with pytest.raises(ed.InvalidFormatError, match="scene.unknown_primitive"):
+            drawing.primitive_points(unknown)
+    for primitive in drawing.summary.scene.primitives:
+        assert drawing.primitive_points(primitive.id).shape == (
+            primitive.point_count,
+            3,
+        )
     with pytest.raises(ed.InvalidFormatError, match="hsf.invalid_source_range"):
         drawing.source_bytes(ed.HsfSpan(label.source.domain_id, 2**64 - 1, 2))
     with pytest.raises(dataclasses.FrozenInstanceError):

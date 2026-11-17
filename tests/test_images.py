@@ -127,7 +127,9 @@ def test_corrupt_recognized_layout_is_invalid(kwargs):
         {"flags": 0xB3},
         {"flags": 0x1A3},
         {"flags": 0xA4},
-        {"compression": 0},
+        {"flags": 0x23},
+        {"flags": 0x87, "compression": 0},
+        {"compression": 1},
         {"compression": 99},
         {"alpha": b"\2"},
         {"jpeg": JPEG.replace(b"\xff\xc0", b"\xff\xc2")},
@@ -138,6 +140,31 @@ def test_unknown_profiles_stop_at_original_image(kwargs):
     assert not h.summary.records
     assert h.summary.diagnostics[-1].code == "hsf.image_profile"
     assert h.summary.domains[0].parsed_bytes == len(raw(b""))
+
+
+def test_rows_without_compression_and_other_named_forms_are_framed():
+    def rows(flags, payload):
+        return (
+            b"i"
+            + struct.pack("<3fIB", 1, 2, 3, flags, 4)
+            + b"tile"
+            + struct.pack("<iiB", 3, 2, 0)
+            + payload
+        )
+
+    for body, profile, length, alpha in [
+        (rows(0x82, bytes(range(18))), "u32_rgb_v1", 18, False),
+        (rows(0x83, bytes(range(24))), "u32_rgba_v1", 24, False),
+        (image(flags=0x83), "u32_rgba_jpeg_v1", len(JPEG), True),
+        (image(flags=0xA2, alpha=b""), "u32_rgb_jpeg_v1", len(JPEG), False),
+    ]:
+        h = parse(body)
+        assert not h.summary.unparsed, profile
+        layout = h.summary.records[0].image
+        assert layout.profile == profile
+        assert layout.data.length == length
+        assert (layout.alpha is not None) == alpha
+        assert h.summary.records[1].kind == "termination"
 
 
 @pytest.mark.parametrize("version", ["8.05", "14.50"])

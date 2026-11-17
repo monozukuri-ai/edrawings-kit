@@ -74,6 +74,7 @@ fn profiles_preserve_fields_and_continue_only_from_computed_end() {
     for (version, revision) in [
         ("8.05", 22),
         ("14.50", 39),
+        ("16.10", 41),
         ("17.85", 43),
         ("18.00", 44),
         ("19.10", 45),
@@ -474,6 +475,221 @@ fn publisher_records_after_the_header_authorize_inventory() {
             assert_eq!(summary.processed_records, 3);
             assert!(summary.primitives.is_empty());
         }
+    }
+}
+
+/// The header of the 7.00 writers ends with its revision string, and its
+/// declared length is the whole payload.
+fn short_block(revision: u32, include: &[u8], delta: i32) -> Vec<u8> {
+    fn blob(out: &mut Vec<u8>, b: &[u8]) {
+        out.push(b.len() as u8);
+        out.extend(b);
+    }
+    let mut p = vec![0xbe];
+    for s in [b"]h\0".as_slice(), b"writer", b"", b""] {
+        blob(&mut p, s);
+    }
+    p.push(1);
+    p.extend([0; 64]);
+    p.extend(revision.to_le_bytes());
+    p.push(0);
+    p.extend([b']'; 16]);
+    blob(&mut p, include);
+    blob(&mut p, &[0; 16]);
+    blob(&mut p, &[0; 16]);
+    blob(&mut p, b"config");
+    p.extend([1, 0]);
+    blob(&mut p, format!("{revision};").as_bytes());
+    let mut out = vec![b'['];
+    out.extend((p.len() as i32 - delta).to_le_bytes());
+    out.extend(p);
+    out.push(b']');
+    out
+}
+fn terminal(revision: u32, zeros: usize) -> Vec<u8> {
+    let mut out = vec![b'['];
+    out.extend(9u32.to_le_bytes());
+    out.push(0xbe);
+    out.extend(revision.to_le_bytes());
+    out.extend(vec![0; zeros]);
+    out.push(b']');
+    out
+}
+#[test]
+fn seven_zero_header_ends_with_its_revision_string() {
+    let include = b"/include library/model_1_include";
+    let header = short_block(17, include, 0);
+    let body = [header.as_slice(), b"U\x03\0x=yz"].concat();
+    let d = doc(&file("7.00", &body, &root()));
+    let p = parse(&d);
+    let s = p.summary();
+    assert_eq!(s.stages.hsf_syntax, Status::Partial);
+    assert!(s.unparsed.is_empty());
+    assert_eq!(s.diagnostics.len(), 1);
+    assert_eq!(s.diagnostics[0].code, "hsf.experimental_user_data");
+    let r = &s.records[3];
+    assert_eq!(p.source_bytes(&r.source).unwrap(), header);
+    let u = r.user_data.as_ref().unwrap();
+    assert_eq!(u.profile, "edrawings-first-be-v2-hsf-7.00-revision-17");
+    assert_eq!(u.computed_payload_length, u.declared_length);
+    let labels: Vec<_> = u.fields.iter().map(|f| f.label.as_str()).collect();
+    assert_eq!(labels.last(), Some(&"stop"));
+    assert!(labels.contains(&"revision_string_candidate"));
+    for absent in ["opaque_flag", "opaque_blob_2", "revision_tail"] {
+        assert!(!labels.contains(&absent), "{absent}");
+    }
+    let mut at = 0;
+    for f in &u.fields {
+        assert_eq!(f.source.offset, at);
+        at += f.source.length;
+    }
+    assert_eq!(at, header.len() as u64);
+    assert_eq!(s.records[4].kind, "user_options");
+    // The later layouts' accounting, their fields and other revisions do not fit.
+    for bytes in [
+        short_block(17, include, 1),
+        short_block(17, include, -1),
+        short_block(16, include, 0),
+        short_block(22, include, 0),
+        block(17, include, 1),
+    ] {
+        let body = [bytes.as_slice(), b"U\x03\0x=yz"].concat();
+        let p = parse(&doc(&file("7.00", &body, &root())));
+        assert_eq!(
+            p.summary().diagnostics[0].code,
+            "edrawings.user_data_profile_mismatch"
+        );
+        assert_eq!(p.summary().records.len(), 3);
+    }
+    // The short header belongs to 7.00 only.
+    let p = parse(&doc(&file("8.05", &body, &root())));
+    assert_eq!(
+        p.summary().diagnostics[0].code,
+        "edrawings.user_data_profile_mismatch"
+    );
+    for end in 1..header.len() {
+        let p = parse(&doc(&file("7.00", &header[..end], &root())));
+        assert_eq!(p.summary().records.len(), 3, "end={end}");
+    }
+}
+#[test]
+fn seven_zero_root_segment_and_terminal_envelope_authorize_inventory() {
+    let mut line = vec![b'l'];
+    for f in [1f32, 2., 3., 4., 5., 6.] {
+        line.extend(f.to_le_bytes());
+    }
+    let header = short_block(17, b"/include library/model_1_include", 0);
+    let segment = [b"(\x01a".as_slice(), &line, b")"].concat();
+    let bytes = file(
+        "7.00",
+        &[header.as_slice(), &segment, &terminal(17, 8), b"z"].concat(),
+        &root(),
+    );
+    let d = doc(&bytes);
+    let p = d
+        .parse_hsf_with_user_data(
+            None,
+            HsfMode::Partial,
+            UserDataPolicy::EdrawingsBeEnvelopeV1,
+        )
+        .unwrap();
+    let s = p.summary();
+    assert!(s.unparsed.is_empty());
+    let last = s.records[s.records.len() - 3].user_data.as_ref().unwrap();
+    assert_eq!(
+        last.profile,
+        "edrawings-terminal-be-v1-hsf-7.00-revision-17"
+    );
+    let scene = d
+        .read_scene_with_user_data(
+            None,
+            HsfMode::Partial,
+            UserDataPolicy::EdrawingsBeEnvelopeV1,
+        )
+        .unwrap();
+    let summary = scene.summary();
+    assert_eq!(summary.placement_status, Status::Unsupported);
+    assert_eq!(summary.opaque_user_data.len(), 2);
+    assert_eq!(summary.processed_records, summary.hsf.records.len() as u64);
+    assert_eq!(
+        scene.primitive_points(&summary.primitives[0].id).unwrap(),
+        &[[1., 2., 3.], [4., 5., 6.]]
+    );
+    // The later envelope's twelve zero bytes do not close a 7.00 stream.
+    let bytes = file(
+        "7.00",
+        &[header.as_slice(), &segment, &terminal(17, 12), b"z"].concat(),
+        &root(),
+    );
+    let p = doc(&bytes)
+        .parse_hsf_with_user_data(
+            None,
+            HsfMode::Partial,
+            UserDataPolicy::EdrawingsBeEnvelopeV1,
+        )
+        .unwrap();
+    assert!(!p.summary().unparsed.is_empty());
+}
+
+/// A later header whose first flag and fourth opaque word are chosen, with the
+/// declared length `delta` short of the payload.
+fn block_with_flag_and_word(flag: u8, fourth_word: u32, delta: u32) -> Vec<u8> {
+    fn blob(out: &mut Vec<u8>, b: &[u8]) {
+        out.push(b.len() as u8);
+        out.extend(b);
+    }
+    let mut p = vec![0xbe];
+    for s in [b"<none>".as_slice(), b"writer", b"<none>", b"<none>"] {
+        blob(&mut p, s);
+    }
+    p.push(flag);
+    p.extend([0; 64]);
+    p.extend(45u32.to_le_bytes());
+    p.push(0);
+    p.extend([0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0]);
+    p.extend(fourth_word.to_le_bytes());
+    blob(&mut p, b"/include library/model_1_include");
+    blob(&mut p, &[0; 16]);
+    blob(&mut p, &[0; 16]);
+    blob(&mut p, b"<none>");
+    p.extend([0, 0]);
+    blob(&mut p, b"<none>45;");
+    p.push(0);
+    blob(&mut p, &[b']'; 24]);
+    p.extend([0; 48]);
+    let mut out = vec![b'['];
+    out.extend((p.len() as u32 - delta).to_le_bytes());
+    out.extend(p);
+    out.push(b']');
+    out
+}
+#[test]
+fn flagged_header_may_fall_short_by_its_fourth_opaque_word() {
+    let accepted = |header: Vec<u8>| {
+        let body = [header, b"U\x03\0x=yz".to_vec()].concat();
+        let p = parse(&doc(&file("19.10", &body, &root())));
+        let s = p.summary();
+        s.records.get(3).is_some_and(|r| r.user_data.is_some())
+            && s.records.get(4).is_some_and(|r| r.kind == "user_options")
+    };
+    // The usual one byte, whatever the flag and the word hold.
+    assert!(accepted(block_with_flag_and_word(0, 0, 1)));
+    assert!(accepted(block_with_flag_and_word(1, 3, 1)));
+    assert!(accepted(block_with_flag_and_word(0, 3, 1)));
+    // The word on top of it, with the flag set only.
+    let header = block_with_flag_and_word(1, 3, 4);
+    let body = [header.as_slice(), b"U\x03\0x=yz"].concat();
+    let p = parse(&doc(&file("19.10", &body, &root())));
+    let s = p.summary();
+    let u = s.records[3].user_data.as_ref().unwrap();
+    assert_eq!(u.computed_payload_length - u.declared_length, 4);
+    assert_eq!(p.source_bytes(&s.records[3].source).unwrap(), header);
+    assert_eq!(s.records[4].kind, "user_options");
+    for (flag, word, delta) in [(0, 3, 4), (1, 3, 3), (1, 3, 5), (1, 0, 4), (1, 2, 4)] {
+        assert!(
+            !accepted(block_with_flag_and_word(flag, word, delta)),
+            "{flag} {word} {delta}"
+        );
     }
 }
 

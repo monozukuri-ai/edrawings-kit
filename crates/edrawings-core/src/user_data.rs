@@ -31,7 +31,8 @@ impl UserDataPolicy {
     /// root header must be followed immediately by a fully framed h or }, or
     /// by what the third-party publishers write there: the marker size `+`
     /// (Creo 10 at 21.00, Creo 11 at 21.15) or a root segment `(` (the CATIA V5
-    /// publisher at 19.00, the Creo Elements/Direct publisher at 19.10).
+    /// publisher at 19.00, the Creo Elements/Direct publisher at 19.10). The
+    /// 7.00 writers open their root segment there too.
     /// This does not authorize placements or interpretation of private fields.
     pub(crate) fn inventory_record(self, parsed: &hsf_core::HsfDocument) -> Option<String> {
         if matches!(self, Self::Disabled) {
@@ -42,7 +43,7 @@ impl UserDataPolicy {
         let version = (parsed.header.version.major, parsed.header.version.minor);
         let publisher = match version {
             (21, 0) | (21, 15) => next.opcode == b'+',
-            (19, 0) | (19, 10) => next.opcode == b'(' && next.scope.is_none(),
+            (7, 0) | (19, 0) | (19, 10) => next.opcode == b'(' && next.scope.is_none(),
             _ => false,
         };
         if r.opcode != b'['
@@ -280,15 +281,21 @@ impl UserDataProfile for FirstBe {
         for i in 0..4 {
             c.blob(&format!("leading_string_{i}"), None)?;
         }
-        c.flag("flag_0")?;
+        let flag_0 = c.byte("flag_0")?;
+        if flag_0 > 1 {
+            return Err(mismatch("Flag is outside the observed profile"));
+        }
         finite(c.take("matrix_candidate", 64)?)?;
         let revision = c.word("internal_revision")?;
+        // The size of the tail after the third blob, or None where the header
+        // ends with its revision string (HSF 7.00, revision 17).
         let tail = match (
             context.header.version.major,
             context.header.version.minor,
             revision,
         ) {
-            (8, 5, 22) => 4,
+            (7, 0, 17) => None,
+            (8, 5, 22) => Some(4),
             // 49 (SOLIDWORKS 2023, and 2015 files re-saved as `46;49;`) and 50
             // (SOLIDWORKS 2024, HOOPS Exchange Reader 32.5) were observed on
             // uploaded assemblies with the same fields, tail and accounting as
@@ -297,20 +304,22 @@ impl UserDataProfile for FirstBe {
             // under revisions 49 to 51, with an empty include path, as do 17.85
             // (SOLIDWORKS 2011, revision 43), 18.00 (2012, 44) and the Creo 11
             // publisher's 21.15 (51). So do the DXF/DWG reader's 18.00 drawings
-            // at revision 43, the CATIA V5 publisher's 19.00 (45) and the Creo 10
-            // publisher's 21.00 (50).
+            // at revision 43, the CATIA V5 publisher's 19.00 (45), the Creo 10
+            // publisher's 21.00 (50) and 16.10 (revision 41).
             (14, 50, 39)
+            | (16, 10, 41)
             | (17, 85, 43)
             | (18, 0, 43..=44)
             | (19, 0, 45)
             | (19, 10, 45..=51)
             | (20, 90, 49..=51)
             | (21, 0, 50)
-            | (21, 15, 51) => 48,
+            | (21, 15, 51) => Some(48),
             _ => return Err(mismatch("Unverified HSF/revision pair")),
         };
         c.flag("flag_1")?;
-        c.take("opaque_words", 16)?;
+        let words = c.take("opaque_words", 16)?;
+        let fourth_word = u32::from_le_bytes(words[12..16].try_into().expect("four"));
         let include_len = c.blob("include_path_candidate", None)?.len();
         c.blob("opaque_blob_0", Some(&[16]))?;
         c.blob("opaque_blob_1", Some(&[16]))?;
@@ -320,22 +329,36 @@ impl UserDataProfile for FirstBe {
         if !revision_history_matches(text, revision) {
             return Err(mismatch("Revision integer and string disagree"));
         }
-        c.take("opaque_flag", 1)?;
-        // PTC's publishers write 16 bytes here (Pro/ENGINEER Wildfire 4 at 19.10,
-        // Creo 10 at 21.00, Creo 11 at 21.15); SOLIDWORKS and the other writers 24.
-        let blob_2: &[u8] = match (context.header.version.major, context.header.version.minor) {
-            (21, 0) | (21, 15) => &[16],
-            (19, 10) => &[16, 24],
-            _ => &[24],
-        };
-        c.blob("opaque_blob_2", Some(blob_2))?;
-        let tail_bytes = c.take("revision_tail", tail)?;
-        if tail == 48 {
-            finite(&tail_bytes[12..44])?;
+        if let Some(tail) = tail {
+            c.take("opaque_flag", 1)?;
+            // PTC's publishers write 16 bytes here (Pro/ENGINEER Wildfire 4 at 19.10,
+            // Creo 10 at 21.00, Creo 11 at 21.15); SOLIDWORKS and the other writers 24.
+            let blob_2: &[u8] = match (context.header.version.major, context.header.version.minor) {
+                (21, 0) | (21, 15) => &[16],
+                (19, 10) => &[16, 24],
+                _ => &[24],
+            };
+            c.blob("opaque_blob_2", Some(blob_2))?;
+            let tail_bytes = c.take("revision_tail", tail)?;
+            if tail == 48 {
+                finite(&tail_bytes[12..44])?;
+            }
         }
         let payload = (c.at - 5) as u32;
         // Do not use this relation to seek. Check it only AFTER the field walk.
-        if payload.checked_sub(declared) != Some(1 + u32::from(include_len == 0)) {
+        // The short 7.00 header declares its whole payload (observed with a
+        // stored include path); the later ones fall one or two bytes short. A
+        // later header with its first flag set may fall short by its fourth
+        // opaque word as well (observed at 19.10, revision 45, with the word 3).
+        let deficit = match tail {
+            None => 0,
+            Some(_) => 1 + u32::from(include_len == 0),
+        };
+        let short_by = payload.checked_sub(declared);
+        let with_word = (tail.is_some() && flag_0 == 1 && fourth_word != 0)
+            .then(|| deficit.checked_add(fourth_word))
+            .flatten();
+        if short_by != Some(deficit) && (with_word.is_none() || short_by != with_word) {
             return Err(mismatch(
                 "Field boundary disagrees with conditional length accounting",
             ));
@@ -379,6 +402,13 @@ impl UserDataProfile for BeEnvelope {
         let Some(last) = root.last() else {
             return Ok(None);
         };
+        // The envelope follows a root-level Pause; the 7.00 writers put it right
+        // after the close of their last root-level segment instead (the depth
+        // is checked below).
+        let before_terminal = match (context.header.version.major, context.header.version.minor) {
+            (7, 0) => last.opcode == b')',
+            _ => last.opcode == 1 && last.scope.is_none(),
+        };
         if context.domain_id != "hsf:1"
             || !context.compressed
             || context.segment_depth != 0
@@ -388,8 +418,7 @@ impl UserDataProfile for BeEnvelope {
             || first.source.offset != 0
             || first.opcode != b'['
             || first.scope.is_some()
-            || last.opcode != 1
-            || last.scope.is_some()
+            || !before_terminal
             || *last.source.domain_id != *context.domain_id
             || last.source.offset.checked_add(last.source.length) != Some(context.offset)
             || root.iter().filter(|r| r.opcode == b'[').count() != 1
@@ -398,8 +427,10 @@ impl UserDataProfile for BeEnvelope {
         }
         let candidates: &[u32] = match (context.header.version.major, context.header.version.minor)
         {
+            (7, 0) => &[17],
             (8, 5) => &[22],
             (14, 50) => &[39],
+            (16, 10) => &[41],
             (17, 85) => &[43],
             (18, 0) => &[43, 44],
             (19, 0) => &[45],
@@ -426,7 +457,7 @@ impl UserDataProfile for BeEnvelope {
         // envelope under revision 51 (observed on a re-saved 11-configuration
         // assembly), so the longer form is tried whenever the plain envelope
         // cannot fill the domain.
-        let zeros = if revision == 22 { 8 } else { 12 };
+        let zeros = if matches!(revision, 17 | 22) { 8 } else { 12 };
         if revision >= 45 && bytes.len() != 12 + zeros {
             return terminal_bitmaps(context, bytes, revision).map(Some);
         }

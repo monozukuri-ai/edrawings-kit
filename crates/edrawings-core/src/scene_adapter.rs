@@ -46,11 +46,15 @@ impl SceneResult {
         self.syntax.source_bytes(span)
     }
     pub fn primitive_points(&self, id: &str) -> Result<&[[f32; 3]], Error> {
-        let i = self
-            .summary
-            .primitives
-            .iter()
-            .position(|p| p.id == id)
+        // IDs are assigned in order (`primitive:N`): check the slot the ID
+        // names before searching, so reading every primitive stays linear.
+        let primitives = &self.summary.primitives;
+        let named = id
+            .rsplit_once(':')
+            .and_then(|(_, n)| n.parse::<usize>().ok())
+            .filter(|&i| primitives.get(i).is_some_and(|p| p.id == id));
+        let i = named
+            .or_else(|| primitives.iter().position(|p| p.id == id))
             .ok_or_else(|| {
                 Error::invalid("scene.unknown_primitive", "scene", "Unknown primitive ID")
             })?;

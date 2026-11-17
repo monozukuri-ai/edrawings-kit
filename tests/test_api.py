@@ -291,8 +291,10 @@ def test_build_information_and_backend_fingerprint():
     assert "hsf_header" in info.capabilities
     assert "scene" in info.capabilities
     assert info.hsf_syntax_versions == (
+        "7.00",
         "8.05",
         "14.50",
+        "16.10",
         "17.85",
         "18.00",
         "19.00",

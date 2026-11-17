@@ -18,6 +18,7 @@ FIRST = "edrawings_first_be_v2"
 PAIRS = [
     ("8.05", 22),
     ("14.50", 39),
+    ("16.10", 41),
     ("17.85", 43),
     ("18.00", 43),
     ("18.00", 44),
@@ -326,3 +327,69 @@ def test_plain_terminal_envelope_still_wins_and_wrong_length_is_a_mismatch():
         d.code == "edrawings.user_data_profile_mismatch" for d in h.summary.diagnostics
     )
     assert h.summary.unparsed != ()
+
+
+def short_first(revision=17, delta=0, include_path=b"/include library/model_1_include"):
+    """The 7.00 header: it ends with its revision string and declares its payload."""
+
+    def blob(data):
+        return bytes([len(data)]) + data
+
+    payload = (
+        b"\xbe"
+        + blob(b"]h\x00")
+        + blob(b"writer")
+        + blob(b"")
+        + blob(b"")
+        + b"\x01"
+        + struct.pack("<16f", *([0.0] * 16))
+        + struct.pack("<I", revision)
+        + b"\x00"
+        + b"]" * 16
+        + blob(include_path)
+        + blob(bytes(range(16)))
+        + blob(bytes(range(16, 32)))
+        + blob(b"config")
+        + b"\x01\x00"
+        + blob(f"{revision};".encode())
+    )
+    return b"[" + struct.pack("<I", len(payload) - delta) + payload + b"]"
+
+
+def test_seven_zero_header_root_segment_and_terminal_envelope():
+    line = b"l" + struct.pack("<6f", 1, 2, 3, 4, 5, 6)
+    segment = b"(\x01a" + line + b")"
+    short_terminal = b"[" + struct.pack("<IBI", 9, 190, 17) + bytes(8) + b"]"
+    data = packed(short_first() + segment + short_terminal + b"z", "7.00")
+    doc = ed.read(data)
+    h = doc.parse_hsf(user_data_profile=PROFILE)
+    assert not h.summary.unparsed
+    assert [r.user_data.profile for r in h.summary.records if r.user_data] == [
+        "edrawings-first-be-v2-hsf-7.00-revision-17",
+        "edrawings-terminal-be-v1-hsf-7.00-revision-17",
+    ]
+    first_layout = h.summary.records[3].user_data
+    assert first_layout.computed_payload_length == first_layout.declared_length
+    labels = [f.label for f in first_layout.fields]
+    assert labels[-2:] == ["revision_string_candidate", "stop"]
+    assert "opaque_blob_2" not in labels and "revision_tail" not in labels
+    scene = doc.read_scene(user_data_profile=PROFILE)
+    assert scene.summary.processed_records == len(h.summary.records)
+    assert len(scene.summary.opaque_user_data) == 2
+    assert len(scene.summary.primitives) == 1
+    # A header with the later layouts' accounting, another revision, or the
+    # later envelope's twelve zero bytes is not this profile.
+    for body in [
+        short_first(delta=1) + segment + short_terminal + b"z",
+        short_first(revision=16) + segment + short_terminal + b"z",
+        short_first()
+        + segment
+        + b"["
+        + struct.pack("<IBI", 9, 190, 17)
+        + bytes(12)
+        + b"]z",
+    ]:
+        parsed = ed.read(packed(body, "7.00")).parse_hsf(user_data_profile=PROFILE)
+        assert parsed.summary.unparsed
+    # Without the profile the stream stops at the header, as other versions do.
+    assert doc.parse_hsf().summary.domains[1].parsed_bytes == 0
