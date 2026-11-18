@@ -173,17 +173,17 @@
     },
     {
       "name": "hsf-core",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
-      "crate_sha256": "28437320226ff9ef622aec5a504b158ba6330131f55ab804869570e56c04119e",
+      "crate_sha256": "9d2993a5c1140b664e9c86b55b0f2e559f919504dedfca005bddfdf9ae73e332",
       "license_expression": "Apache-2.0",
       "files": [
         {
-          "path": "hsf-core-0.1.0/LICENSE",
+          "path": "hsf-core-0.1.1/LICENSE",
           "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
         },
         {
-          "path": "hsf-core-0.1.0/NOTICE",
+          "path": "hsf-core-0.1.1/NOTICE",
           "sha256": "2934aa61a1e62cbee085f141564de6fa5e9cb84c59e5f5a54f98a04ccd6dd87a"
         }
       ]
